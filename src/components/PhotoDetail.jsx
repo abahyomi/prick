@@ -1,21 +1,27 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react'
 import { gsap } from 'gsap'
 import { usePhotos } from '../context/PhotoContext'
+import { usePhotoUpload } from '../hooks/usePhotoUpload'
 
 export default function PhotoDetail() {
   const { selectedPhoto, setSelectedPhoto, updatePhoto, deletePhoto } = usePhotos()
+  const { upload, uploading, progress } = usePhotoUpload()
+
   const [editing,  setEditing]  = useState(false)
   const [editForm, setEditForm] = useState({})
+  const [imgPreview, setImgPreview] = useState(null) // blob URL para previsualizar nueva foto
 
-  const overlayRef = useRef(null)
-  const imgRef     = useRef(null)
-  const contentRef = useRef(null)
-  const metaRef    = useRef(null)
+  const overlayRef  = useRef(null)
+  const imgRef      = useRef(null)
+  const contentRef  = useRef(null)
+  const metaRef     = useRef(null)
+  const fileInputRef = useRef(null)
 
-  // Animar apertura
+  // ── Animación de apertura ───────────────────────────────────
   useEffect(() => {
-    if (!selectedPhoto) { setEditing(false); return }
+    if (!selectedPhoto) { setEditing(false); setImgPreview(null); return }
     setEditForm({ ...selectedPhoto })
+    setImgPreview(null)
     document.body.style.overflow = 'hidden'
 
     const tl = gsap.timeline({ defaults: { ease: 'power3.out' } })
@@ -25,25 +31,25 @@ export default function PhotoDetail() {
       )
       .fromTo(imgRef.current,
         { scale: 0.97, opacity: 0, filter: 'blur(10px)' },
-        { scale: 1,    opacity: 1, filter: 'blur(0px)',  duration: 0.75 },
+        { scale: 1, opacity: 1, filter: 'blur(0px)', duration: 0.72 },
         '-=0.1'
       )
       .fromTo(contentRef.current,
         { x: 20, opacity: 0 },
-        { x: 0,  opacity: 1, duration: 0.55 },
-        '-=0.5'
+        { x: 0, opacity: 1, duration: 0.52 },
+        '-=0.48'
       )
       .fromTo(
         metaRef.current?.children ? Array.from(metaRef.current.children) : [],
-        { opacity: 0, y: 8 },
-        { opacity: 1, y: 0, stagger: 0.055, duration: 0.4 },
-        '-=0.35'
+        { opacity: 0, y: 7 },
+        { opacity: 1, y: 0, stagger: 0.05, duration: 0.38 },
+        '-=0.32'
       )
 
     return () => { document.body.style.overflow = '' }
   }, [selectedPhoto?.id])
 
-  // Cerrar con Escape
+  // ── Cerrar con Escape ───────────────────────────────────────
   useEffect(() => {
     if (!selectedPhoto) return
     const onKey = (e) => { if (e.key === 'Escape' && !editing) close() }
@@ -53,24 +59,51 @@ export default function PhotoDetail() {
 
   const close = useCallback(() => {
     gsap.to(overlayRef.current, {
-      opacity: 0, duration: 0.28,
+      opacity: 0, duration: 0.25,
       onComplete: () => setSelectedPhoto(null),
     })
   }, [setSelectedPhoto])
 
-  function handleDelete() {
-    if (window.confirm('¿Eliminar este fotograma definitivamente?')) {
-      deletePhoto(selectedPhoto.id)
+  // ── Seleccionar nueva foto ──────────────────────────────────
+  const handlePhotoSelect = useCallback((e) => {
+    const file = e.target.files?.[0]
+    if (!file || !file.type.startsWith('image/')) return
+    // Preview local inmediato
+    const blob = URL.createObjectURL(file)
+    setImgPreview(blob)
+    // Guardar el file en el form para subirlo al guardar
+    setEditForm(f => ({ ...f, _pendingFile: file }))
+    // Animar la transición de imagen
+    gsap.fromTo(imgRef.current,
+      { opacity: 0, scale: 0.97, filter: 'blur(6px)' },
+      { opacity: 1, scale: 1, filter: 'blur(0px)', duration: 0.55, ease: 'power2.out' }
+    )
+  }, [])
+
+  // ── Guardar cambios ─────────────────────────────────────────
+  const handleSave = useCallback(async () => {
+    const { _pendingFile, ...formData } = editForm
+
+    if (_pendingFile) {
+      // Subir nueva imagen
+      const uploaded = await upload(_pendingFile)
+      if (!uploaded) return
+      formData.url   = uploaded.url
+      formData.thumb = uploaded.thumb
+      if (uploaded.publicId) formData.publicId = uploaded.publicId
     }
-  }
 
-  function handleSave() {
-    updatePhoto(selectedPhoto.id, editForm)
-    setSelectedPhoto({ ...selectedPhoto, ...editForm })
+    updatePhoto(selectedPhoto.id, formData)
+    setSelectedPhoto(prev => ({ ...prev, ...formData }))
+    setImgPreview(null)
     setEditing(false)
+  }, [editForm, selectedPhoto, upload, updatePhoto, setSelectedPhoto])
+
+  function handleDelete() {
+    if (window.confirm('¿Eliminar este fotograma definitivamente?')) deletePhoto(selectedPhoto.id)
   }
 
-  const set = (key) => (e) => setEditForm((f) => ({ ...f, [key]: e.target.value }))
+  const set = (key) => (e) => setEditForm(f => ({ ...f, [key]: e.target.value }))
   const onImgLoad = useCallback(e => e.target.classList.add('loaded'), [])
 
   if (!selectedPhoto) return null
@@ -79,15 +112,17 @@ export default function PhotoDetail() {
     weekday: 'long', day: '2-digit', month: 'long', year: 'numeric',
   })
 
+  const currentImgSrc = imgPreview || selectedPhoto.url
+
   return (
     <div
       ref={overlayRef}
       className="fixed inset-0 z-[60] bg-surface overflow-y-auto no-scrollbar"
       style={{ opacity: 0 }}
     >
-      {/* Barra superior */}
+      {/* ── Barra de controles ── */}
       <div
-        className="sticky top-0 z-10 bg-surface flex items-center justify-between px-7 py-4"
+        className="sticky top-0 z-10 bg-surface flex items-center justify-between px-6 py-4"
         style={{ borderBottom: '1px solid var(--c-ink-faint)' }}
       >
         <button
@@ -99,7 +134,7 @@ export default function PhotoDetail() {
           <span>Volver</span>
         </button>
 
-        <div className="flex items-center gap-6">
+        <div className="flex items-center gap-5">
           {!editing ? (
             <>
               <button
@@ -123,23 +158,36 @@ export default function PhotoDetail() {
             </>
           ) : (
             <>
+              {/* Barra de progreso de subida */}
+              {uploading && (
+                <div className="flex items-center gap-2">
+                  <div className="w-20 h-px relative" style={{ backgroundColor: 'var(--c-ink-faint)' }}>
+                    <div
+                      className="absolute inset-y-0 left-0 transition-all duration-200"
+                      style={{ width: `${progress}%`, backgroundColor: 'var(--c-ink)' }}
+                    />
+                  </div>
+                  <span className="text-meta" style={{ color: 'var(--c-ink-dim)' }}>{progress}%</span>
+                </div>
+              )}
               <button
                 onClick={handleSave}
-                className="text-meta transition-opacity"
+                disabled={uploading}
+                className="text-meta transition-opacity disabled:opacity-30"
                 style={{
                   backgroundColor: 'var(--c-ink)',
-                  color:           'var(--c-surface)',
-                  padding:         '0.38rem 1.1rem',
-                  letterSpacing:   '0.20em',
+                  color: 'var(--c-surface)',
+                  padding: '0.38rem 1.1rem',
+                  letterSpacing: '0.20em',
                 }}
-                onMouseEnter={e => (e.currentTarget.style.opacity = '0.72')}
+                onMouseEnter={e => !e.currentTarget.disabled && (e.currentTarget.style.opacity = '0.72')}
                 onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
               >
-                Guardar
+                {uploading ? 'Subiendo…' : 'Guardar'}
               </button>
               <button
-                onClick={() => setEditing(false)}
-                className="text-meta transition-opacity"
+                onClick={() => { setEditing(false); setImgPreview(null); setEditForm({ ...selectedPhoto }) }}
+                className="text-meta transition-opacity hover:opacity-50"
                 style={{ color: 'var(--c-ink-dim)' }}
               >
                 Cancelar
@@ -149,17 +197,56 @@ export default function PhotoDetail() {
         </div>
       </div>
 
-      {/* Layout principal */}
+      {/* ── Layout principal ── */}
       <div className="grid grid-cols-1 md:grid-cols-12 min-h-[calc(100vh-53px)]">
-        {/* Columna imagen — siempre negra */}
-        <div className="md:col-span-7 flex items-center justify-center bg-black min-h-[55vw] md:min-h-0">
+
+        {/* Columna imagen */}
+        <div className="md:col-span-7 relative flex items-center justify-center bg-black min-h-[55vw] md:min-h-0">
           <img
             ref={imgRef}
-            src={selectedPhoto.url}
+            src={currentImgSrc}
             alt={selectedPhoto.location}
             onLoad={onImgLoad}
             className="lazy-fade w-full h-full object-contain grayscale max-h-[85vh]"
             style={{ opacity: 0 }}
+          />
+
+          {/* Overlay de cambio de foto — visible solo en modo edición */}
+          {editing && (
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="absolute inset-0 flex flex-col items-center justify-center gap-3 transition-opacity"
+              style={{ backgroundColor: 'rgba(0,0,0,0.52)' }}
+              onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'rgba(0,0,0,0.68)')}
+              onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'rgba(0,0,0,0.52)')}
+            >
+              {/* Icono cámara SVG */}
+              <svg
+                width="32" height="32" viewBox="0 0 24 24" fill="none"
+                stroke="rgba(255,255,255,0.85)" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"
+              >
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                <circle cx="12" cy="13" r="4"/>
+              </svg>
+              <span className="text-meta" style={{ color: 'rgba(255,255,255,0.7)', letterSpacing: '0.22em' }}>
+                Cambiar foto
+              </span>
+              {imgPreview && (
+                <span className="text-meta" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                  Nueva imagen seleccionada
+                </span>
+              )}
+            </button>
+          )}
+
+          {/* Input file oculto — acepta cualquier imagen, activa la cámara en móvil */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+            onChange={handlePhotoSelect}
           />
         </div>
 
@@ -170,6 +257,7 @@ export default function PhotoDetail() {
           style={{ opacity: 0 }}
         >
           <div ref={metaRef} className="space-y-8">
+
             {/* Fecha / Lugar */}
             <div>
               {editing ? (
@@ -203,9 +291,7 @@ export default function PhotoDetail() {
 
             {/* Pensamiento */}
             <div>
-              <p className="text-meta mb-3" style={{ color: 'var(--c-ink-dim)' }}>
-                Pensamiento
-              </p>
+              <p className="text-meta mb-3" style={{ color: 'var(--c-ink-dim)' }}>Pensamiento</p>
               {editing ? (
                 <textarea
                   value={editForm.description}
@@ -222,9 +308,7 @@ export default function PhotoDetail() {
 
             {/* Técnica */}
             <div>
-              <p className="text-meta mb-4" style={{ color: 'var(--c-ink-dim)' }}>
-                Técnica
-              </p>
+              <p className="text-meta mb-4" style={{ color: 'var(--c-ink-dim)' }}>Técnica</p>
               <div className="space-y-3">
                 {[
                   ['Cámara',    'camera'],
@@ -234,9 +318,7 @@ export default function PhotoDetail() {
                   ['Autor',     'author'],
                 ].map(([label, key]) => (
                   <div key={key} className="flex justify-between items-baseline">
-                    <span className="text-meta" style={{ color: 'var(--c-ink-dim)' }}>
-                      {label}
-                    </span>
+                    <span className="text-meta" style={{ color: 'var(--c-ink-dim)' }}>{label}</span>
                     {editing ? (
                       key === 'author' ? (
                         <select
