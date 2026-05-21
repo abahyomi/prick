@@ -4,7 +4,7 @@ import { isCloudinaryConfigured } from '../utils/cloudinary'
 
 const PhotoContext = createContext(null)
 
-const STORAGE_KEY = 'prick_photos'
+const STORAGE_KEY = 'prick_photos_v2' // v2 fuerza reset del caché con fotos reales
 
 function loadFromStorage() {
   try {
