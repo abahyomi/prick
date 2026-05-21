@@ -18,11 +18,13 @@ function loadFromStorage() {
 
 function saveToStorage(photos) {
   try {
-    // Don't persist blob URLs — they're ephemeral
-    const serializable = photos.filter((p) => !p.url.startsWith('blob:'))
+    // Las data URLs (base64) son persistentes; blob:// no lo son — excluirlas
+    const serializable = photos.filter((p) => p.url && !p.url.startsWith('blob:'))
     localStorage.setItem(STORAGE_KEY, JSON.stringify(serializable))
-  } catch {
-    // storage full or unavailable — silent fail
+  } catch (e) {
+    if (e.name === 'QuotaExceededError') {
+      console.warn('[PRICK] localStorage lleno — considera conectar Cloudinary')
+    }
   }
 }
 
@@ -36,12 +38,10 @@ export function PhotoProvider({ children }) {
   const [uploadModalOpen, setUploadModalOpen] = useState(false)
   const [usingCloudinary] = useState(isCloudinaryConfigured)
 
-  // Persist to localStorage whenever photos change (fallback for dev)
+  // Persistir siempre — fotos locales usan data URLs que sobreviven recarga
   useEffect(() => {
-    if (!usingCloudinary) {
-      saveToStorage(photos)
-    }
-  }, [photos, usingCloudinary])
+    saveToStorage(photos)
+  }, [photos])
 
   const addPhoto = useCallback((photo) => {
     const newPhoto = { ...photo, id: `photo-${Date.now()}` }

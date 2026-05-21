@@ -1,5 +1,6 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react'
 import { gsap } from 'gsap'
+import * as Exifr from 'exifr'
 import { usePhotos } from '../context/PhotoContext'
 import { usePhotoUpload } from '../hooks/usePhotoUpload'
 
@@ -12,6 +13,57 @@ const EMPTY_FORM = {
   iso:         '',
   aperture:    '',
   shutter:     '',
+}
+
+// ── EXIF helpers ────────────────────────────────────────────
+async function extractExif(file) {
+  try {
+    const tags = await Exifr.parse(file, {
+      tiff: true, exif: true, gps: true, iptc: false, xmp: false,
+      pick: ['DateTimeOriginal', 'Make', 'Model', 'ISO', 'FNumber',
+             'ExposureTime', 'GPSLatitude', 'GPSLongitude'],
+    })
+    if (!tags) return {}
+
+    const result = {}
+
+    if (tags.DateTimeOriginal instanceof Date)
+      result.date = tags.DateTimeOriginal.toISOString().split('T')[0]
+
+    if (tags.Make || tags.Model) {
+      const make  = (tags.Make  || '').replace('Apple', 'Apple').trim()
+      const model = (tags.Model || '').trim()
+      // evitar duplicar "Apple Apple iPhone 15"
+      result.camera = model.startsWith(make) ? model : `${make} ${model}`.trim()
+    }
+
+    if (tags.ISO)          result.iso      = String(tags.ISO)
+    if (tags.FNumber)      result.aperture = `f/${tags.FNumber}`
+    if (tags.ExposureTime) {
+      const t = tags.ExposureTime
+      result.shutter = t >= 1 ? `${t}s` : `1/${Math.round(1 / t)}s`
+    }
+
+    if (tags.GPSLatitude && tags.GPSLongitude) {
+      result.location = await reverseGeocode(tags.GPSLatitude, tags.GPSLongitude)
+    }
+
+    return result
+  } catch { return {} }
+}
+
+async function reverseGeocode(lat, lng) {
+  try {
+    const r = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&accept-language=es`,
+      { headers: { 'User-Agent': 'PRICK-Diary/1.0' } }
+    )
+    const d = await r.json()
+    const a = d.address || {}
+    const city    = a.city || a.town || a.village || a.municipality || a.county
+    const country = a.country
+    return [city, country].filter(Boolean).join(', ')
+  } catch { return '' }
 }
 
 export default function UploadModal() {
@@ -59,10 +111,16 @@ export default function UploadModal() {
     gsap.to(overlayRef.current, { opacity: 0, duration: 0.25 })
   }
 
-  const handleFile = useCallback((f) => {
+  const handleFile = useCallback(async (f) => {
     if (!f || !f.type.startsWith('image/')) return
     setFile(f)
     setPreviewUrl(URL.createObjectURL(f))
+
+    // Extraer metadatos EXIF y pre-rellenar el formulario
+    const exif = await extractExif(f)
+    if (Object.keys(exif).length > 0) {
+      setForm(prev => ({ ...prev, ...exif }))
+    }
   }, [])
 
   const onDrop = useCallback((e) => {

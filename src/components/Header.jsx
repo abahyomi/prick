@@ -117,7 +117,7 @@ export default function Header({ ready, dark, onToggleDark }) {
           Abahyomi &amp; Alexandra
         </p>
         <p className="text-meta" style={{ color: 'var(--c-ink-dim)' }}>
-          La memoria hecha imagen.
+          Diario de fotografías
         </p>
       </div>
     </header>
