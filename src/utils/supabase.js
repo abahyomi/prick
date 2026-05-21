@@ -13,22 +13,36 @@ export const supabase = isSupabaseConfigured()
 // ── Compresión antes de subir ──────────────────────────────
 export async function compressToBlob(file, maxPx = 1080, quality = 0.88) {
   return new Promise((resolve, reject) => {
+    // Timeout de 30s por si el navegador cuelga al decodificar la imagen
+    const timer = setTimeout(() => reject(new Error('Tiempo de compresión agotado (30s)')), 30_000)
+    const done  = (val) => { clearTimeout(timer); resolve(val) }
+    const fail  = (msg) => { clearTimeout(timer); reject(new Error(msg)) }
+
     const img    = new Image()
     const tmpUrl = URL.createObjectURL(file)
+
     img.onload = () => {
       URL.revokeObjectURL(tmpUrl)
-      let w = img.naturalWidth, h = img.naturalHeight
-      if (w > maxPx || h > maxPx) {
-        if (w > h) { h = Math.round(h * maxPx / w); w = maxPx }
-        else       { w = Math.round(w * maxPx / h); h = maxPx }
-      }
-      const canvas = document.createElement('canvas')
-      canvas.width = w; canvas.height = h
-      canvas.getContext('2d').drawImage(img, 0, 0, w, h)
-      canvas.toBlob(b => b ? resolve(b) : reject(new Error('canvas.toBlob falló')),
-        'image/jpeg', quality)
+      try {
+        let w = img.naturalWidth, h = img.naturalHeight
+        if (!w || !h) return fail('Imagen sin dimensiones — formato no soportado')
+        if (w > maxPx || h > maxPx) {
+          if (w > h) { h = Math.round(h * maxPx / w); w = maxPx }
+          else       { w = Math.round(w * maxPx / h); h = maxPx }
+        }
+        const canvas = document.createElement('canvas')
+        canvas.width = w; canvas.height = h
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h)
+        canvas.toBlob(
+          b => b ? done(b) : fail('canvas.toBlob devolvió null — memoria insuficiente'),
+          'image/jpeg', quality
+        )
+      } catch (e) { fail(e.message) }
     }
-    img.onerror = reject
+    img.onerror = () => {
+      URL.revokeObjectURL(tmpUrl)
+      fail('No se pudo cargar la imagen — formato no compatible')
+    }
     img.src = tmpUrl
   })
 }

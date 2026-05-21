@@ -3,6 +3,7 @@ import { gsap } from 'gsap'
 import * as Exifr from 'exifr'
 import { usePhotos } from '../context/PhotoContext'
 import { usePhotoUpload } from '../hooks/usePhotoUpload'
+import { useToast } from '../context/ToastContext'
 
 const EMPTY_FORM = {
   date:        new Date().toISOString().split('T')[0],
@@ -81,12 +82,15 @@ async function reverseGeocode(lat, lng) {
 
 export default function UploadModal() {
   const { uploadModalOpen, setUploadModalOpen, addPhoto } = usePhotos()
-  const { upload, uploading, progress, error } = usePhotoUpload()
+  const { upload, uploading, progress } = usePhotoUpload()
+  const { showToast } = useToast()
 
-  const [form,       setForm]       = useState(EMPTY_FORM)
-  const [previewUrl, setPreviewUrl] = useState(null)
-  const [file,       setFile]       = useState(null)
-  const [dragging,   setDragging]   = useState(false)
+  const [form,        setForm]       = useState(EMPTY_FORM)
+  const [previewUrl,  setPreviewUrl] = useState(null)
+  const [file,        setFile]       = useState(null)
+  const [dragging,    setDragging]   = useState(false)
+  const [submitting,  setSubmitting] = useState(false) // cubre también la fase de DB
+  const [localError,  setLocalError] = useState(null)
 
   const overlayRef   = useRef(null)
   const panelRef     = useRef(null)
@@ -119,6 +123,8 @@ export default function UploadModal() {
         setForm(EMPTY_FORM)
         setPreviewUrl(null)
         setFile(null)
+        setLocalError(null)
+        setSubmitting(false)
       },
     })
     gsap.to(overlayRef.current, { opacity: 0, duration: 0.25 })
@@ -144,21 +150,34 @@ export default function UploadModal() {
 
   async function handleSubmit(e) {
     e.preventDefault()
-    if (!file) return
+    if (!file || submitting) return
 
-    // Generar ID aquí para que Storage y DB compartan el mismo identificador
-    const id = `photo-${Date.now()}`
-    const uploaded = await upload(file, id)
-    if (!uploaded) return
+    setSubmitting(true)
+    setLocalError(null)
 
-    await addPhoto({
-      ...form,
-      id,
-      url:       uploaded.url,
-      thumb:     uploaded.thumb,
-      publicId:  uploaded.publicId ?? id,
-    })
-    close()
+    try {
+      // 1. Subir imagen (Storage / Cloudinary / data URL)
+      const id = `photo-${Date.now()}`
+      const uploaded = await upload(file, id)
+      if (!uploaded) throw new Error('No se pudo subir la imagen')
+
+      // 2. Guardar metadatos en DB / localStorage
+      await addPhoto({
+        ...form,
+        id,
+        url:   uploaded.url,
+        thumb: uploaded.thumb,
+      })
+
+      showToast('¡Foto añadida al archivo!', 'success')
+      close()
+    } catch (err) {
+      const msg = err?.message || 'Error desconocido al guardar'
+      setLocalError(msg)
+      showToast(msg, 'error')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }))
@@ -247,11 +266,11 @@ export default function UploadModal() {
           />
 
           {/* Barra de progreso */}
-          {uploading && (
+          {(uploading || submitting) && (
             <div className="relative h-px w-full" style={{ backgroundColor: 'rgba(var(--c-ink-rgb),0.10)' }}>
               <div
-                className="absolute inset-y-0 left-0 transition-all duration-200"
-                style={{ width: `${progress}%`, backgroundColor: 'var(--c-ink)' }}
+                className="absolute inset-y-0 left-0 transition-all duration-300"
+                style={{ width: uploading ? `${progress}%` : '95%', backgroundColor: 'var(--c-ink)' }}
               />
             </div>
           )}
@@ -295,8 +314,14 @@ export default function UploadModal() {
             />
           </Campo>
 
-          {error && (
-            <p className="text-meta" style={{ color: '#e55' }}>{error}</p>
+          {/* Error inline prominente */}
+          {localError && (
+            <div
+              className="text-meta px-4 py-3"
+              style={{ backgroundColor: 'rgba(255,80,80,0.12)', color: 'rgba(255,110,110,0.9)', letterSpacing: '0.12em' }}
+            >
+              ✕ &nbsp;{localError}
+            </div>
           )}
 
           {/* Acciones */}
@@ -307,25 +332,29 @@ export default function UploadModal() {
             <button
               type="button"
               onClick={close}
-              className="text-meta transition-opacity hover:opacity-50"
+              disabled={submitting}
+              className="text-meta transition-opacity hover:opacity-50 disabled:opacity-30"
               style={{ color: 'var(--c-ink-dim)' }}
             >
               Cancelar
             </button>
             <button
               type="submit"
-              disabled={!file || uploading}
+              disabled={!file || submitting}
               className="text-meta transition-opacity disabled:opacity-25"
               style={{
                 backgroundColor: 'var(--c-ink)',
                 color:           'var(--c-surface)',
                 padding:         '0.5rem 1.8rem',
                 letterSpacing:   '0.20em',
+                minWidth:        '10rem',
               }}
               onMouseEnter={e => !e.currentTarget.disabled && (e.currentTarget.style.opacity = '0.72')}
               onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
             >
-              {uploading ? `Subiendo ${progress}%` : 'Añadir al archivo'}
+              {submitting
+                ? (uploading ? `Subiendo ${progress}%` : 'Guardando…')
+                : 'Añadir al archivo'}
             </button>
           </div>
         </form>

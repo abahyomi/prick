@@ -2,10 +2,12 @@ import React, { useEffect, useRef, useState, useCallback } from 'react'
 import { gsap } from 'gsap'
 import { usePhotos } from '../context/PhotoContext'
 import { usePhotoUpload } from '../hooks/usePhotoUpload'
+import { useToast } from '../context/ToastContext'
 
 export default function PhotoDetail() {
   const { selectedPhoto, setSelectedPhoto, updatePhoto, deletePhoto } = usePhotos()
   const { upload, uploading, progress } = usePhotoUpload()
+  const { showToast } = useToast()
 
   const [editing,      setEditing]     = useState(false)
   const [editForm,     setEditForm]    = useState({})
@@ -93,24 +95,28 @@ export default function PhotoDetail() {
   // ── Guardar cambios ─────────────────────────────────────────
   const handleSave = useCallback(async () => {
     const { _pendingFile, ...formData } = editForm
-
-    if (_pendingFile) {
-      // Subir nueva imagen
-      const uploaded = await upload(_pendingFile)
-      if (!uploaded) return
-      formData.url   = uploaded.url
-      formData.thumb = uploaded.thumb
-      if (uploaded.publicId) formData.publicId = uploaded.publicId
+    try {
+      if (_pendingFile) {
+        const uploaded = await upload(_pendingFile, selectedPhoto.id)
+        if (!uploaded) throw new Error('Error al subir la imagen')
+        formData.url   = uploaded.url
+        formData.thumb = uploaded.thumb
+      }
+      await updatePhoto(selectedPhoto.id, formData)
+      setSelectedPhoto(prev => ({ ...prev, ...formData }))
+      setImgPreview(null)
+      setEditing(false)
+      showToast('Cambios guardados', 'success')
+    } catch (err) {
+      showToast(err.message || 'Error al guardar', 'error')
     }
-
-    updatePhoto(selectedPhoto.id, formData)
-    setSelectedPhoto(prev => ({ ...prev, ...formData }))
-    setImgPreview(null)
-    setEditing(false)
-  }, [editForm, selectedPhoto, upload, updatePhoto, setSelectedPhoto])
+  }, [editForm, selectedPhoto, upload, updatePhoto, setSelectedPhoto, showToast])
 
   function handleDelete() {
-    if (window.confirm('¿Eliminar este fotograma definitivamente?')) deletePhoto(selectedPhoto.id)
+    if (window.confirm('¿Eliminar este fotograma definitivamente?')) {
+      deletePhoto(selectedPhoto.id)
+      showToast('Fotograma eliminado', 'info')
+    }
   }
 
   const set = (key) => (e) => setEditForm(f => ({ ...f, [key]: e.target.value }))
