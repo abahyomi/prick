@@ -16,6 +16,7 @@ const EMPTY_FORM = {
   shutter:     '',
   lat:         null,
   lng:         null,
+  time:        '',
 }
 
 // ── EXIF helpers ────────────────────────────────────────────
@@ -30,8 +31,10 @@ async function extractExif(file) {
 
     // Fecha — DateTimeOriginal es un objeto Date en exifr
     const dt = tags.DateTimeOriginal ?? tags.DateTime ?? tags.CreateDate
-    if (dt instanceof Date && !isNaN(dt))
+    if (dt instanceof Date && !isNaN(dt)) {
       result.date = dt.toISOString().split('T')[0]
+      result.time = dt.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false })
+    }
 
     // Cámara — para Apple solo usar el Model (ya incluye "iPhone 14")
     const make  = (tags.Make  || '').trim()
@@ -192,7 +195,7 @@ export default function UploadModal() {
   return (
     <div
       ref={overlayRef}
-      className="fixed inset-0 z-[60] flex items-end md:items-center justify-center"
+      className="fixed inset-0 z-[2100] flex items-end md:items-center justify-center"
       style={{ opacity: 0, backgroundColor: 'rgba(0,0,0,0.92)' }}
       onClick={(e) => e.target === overlayRef.current && close()}
     >

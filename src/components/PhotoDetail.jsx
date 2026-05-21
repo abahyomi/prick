@@ -129,6 +129,7 @@ export default function PhotoDetail() {
   const fecha = new Date(selectedPhoto.date).toLocaleDateString('es-ES', {
     weekday: 'long', day: '2-digit', month: 'long', year: 'numeric',
   })
+  const fechaHora = selectedPhoto.time ? `${fecha} · ${selectedPhoto.time}` : fecha
 
   const currentImgSrc = imgPreview || selectedPhoto.url
 
@@ -136,7 +137,7 @@ export default function PhotoDetail() {
     <>
     <div
       ref={overlayRef}
-      className="fixed inset-0 z-[60] bg-surface overflow-y-auto no-scrollbar"
+      className="fixed inset-0 z-[2200] bg-surface overflow-y-auto no-scrollbar"
       style={{ opacity: 0 }}
     >
       {/* ── Barra de controles ── */}
@@ -287,7 +288,7 @@ export default function PhotoDetail() {
           {/* Menú de selección en móvil */}
           {showMediaMenu && (
             <div
-              className="fixed inset-0 z-[80] flex items-end"
+              className="fixed inset-0 z-[2300] flex items-end"
               style={{ backgroundColor: 'rgba(0,0,0,0.6)' }}
               onClick={() => setShowMediaMenu(false)}
             >
@@ -353,7 +354,7 @@ export default function PhotoDetail() {
                   className={editCampo}
                 />
               ) : (
-                <p className="text-meta" style={{ color: 'var(--c-ink-dim)' }}>{fecha}</p>
+                <p className="text-meta" style={{ color: 'var(--c-ink-dim)' }}>{fechaHora}</p>
               )}
 
               {editing ? (

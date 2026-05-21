@@ -67,90 +67,119 @@ function PhotoPanel({ cluster, onClose, onPhotoClick }) {
 
   useEffect(() => {
     gsap.fromTo(ref.current,
-      { y: 60, opacity: 0 },
-      { y: 0, opacity: 1, duration: 0.42, ease: 'power3.out' }
+      { y: '100%' },
+      { y: 0, duration: 0.4, ease: 'power3.out' }
     )
   }, [cluster.id])
 
   function close() {
     gsap.to(ref.current, {
-      y: 60, opacity: 0, duration: 0.28, ease: 'power2.in',
+      y: '100%', duration: 0.32, ease: 'power2.in',
       onComplete: onClose,
     })
   }
 
-  const fecha = (d) => new Date(d).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: '2-digit' })
+  // Cerrar panel ANTES de abrir el detalle para evitar superposiciones
+  function openPhoto(photo) {
+    gsap.to(ref.current, {
+      y: '100%', duration: 0.22, ease: 'power2.in',
+      onComplete: () => { onClose(); onPhotoClick(photo) },
+    })
+  }
+
+  const fmt = (d, t) => {
+    const s = new Date(d).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })
+    return t ? `${s} · ${t}` : s
+  }
 
   return (
     <div
       ref={ref}
-      className="no-scrollbar bg-surface"
+      className="bg-surface"
       style={{
-        position:    'absolute',
-        bottom:      0, left: 0, right: 0,
-        zIndex:      2000,           // encima de Leaflet (z ≤ 1000)
-        maxHeight:   '65vh',
-        overflowY:   'auto',
-        borderTop:   '1px solid var(--c-ink-faint)',
-        willChange:  'transform, opacity',
+        position:      'absolute',
+        bottom: 0, left: 0, right: 0,
+        zIndex:        2000,
+        maxHeight:     '68vh',
+        display:       'flex',
+        flexDirection: 'column',
+        borderTop:     '1px solid var(--c-ink-faint)',
+        transform:     'translateY(100%)',
+        willChange:    'transform',
+        boxShadow:     '0 -6px 32px rgba(0,0,0,0.28)',
       }}
     >
-      {/* Cabecera sticky */}
+      {/* Drag handle */}
+      <div className="flex justify-center pt-3 pb-1 flex-shrink-0">
+        <div style={{ width: 36, height: 3, borderRadius: 2, backgroundColor: 'var(--c-ink-faint)' }} />
+      </div>
+
+      {/* Cabecera */}
       <div
-        className="flex items-center justify-between px-6 py-4 bg-surface sticky top-0"
-        style={{ zIndex: 10, borderBottom: '1px solid var(--c-ink-faint)' }}
+        className="flex items-center justify-between px-5 py-3 flex-shrink-0"
+        style={{ borderBottom: '1px solid var(--c-ink-faint)' }}
       >
-        <div>
+        <div className="min-w-0">
           <h2
-            className="font-semibold text-ink leading-none"
-            style={{ fontSize: 'clamp(1.1rem, 3vw, 1.9rem)', letterSpacing: '-0.02em' }}
+            className="font-semibold text-ink leading-tight"
+            style={{ fontSize: 'clamp(1rem, 2.5vw, 1.6rem)', letterSpacing: '-0.02em' }}
           >
             {cluster.label}
           </h2>
-          <p className="text-meta mt-1" style={{ color: 'var(--c-ink-dim)' }}>
+          <p className="text-meta mt-0.5" style={{ color: 'var(--c-ink-dim)' }}>
             {cluster.photos.length} {cluster.photos.length === 1 ? 'fotograma' : 'fotogramas'}
           </p>
         </div>
         <button
           onClick={close}
+          style={{ color: 'var(--c-ink-dim)', padding: '0.5rem 0.7rem', fontSize: '1.05rem', flexShrink: 0, marginLeft: 8 }}
           className="text-meta transition-opacity hover:opacity-40"
-          style={{ color: 'var(--c-ink-dim)', fontSize: '1rem', padding: '0.5rem' }}
         >
           ✕
         </button>
       </div>
 
-      {/* Grid de miniaturas */}
-      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 p-1" style={{ gap: '2px' }}>
-        {cluster.photos.map(photo => (
-          <button
-            key={photo.id}
-            className="aspect-[4/5] overflow-hidden relative group block"
-            onClick={() => onPhotoClick(photo)}
-            title={photo.location}
-          >
-            <img
-              src={photo.thumb || photo.url}
-              alt={photo.location}
-              loading="lazy"
-              className="w-full h-full object-cover grayscale transition-transform duration-500 group-hover:scale-105"
-            />
-            {/* Overlay con fecha + lugar */}
-            <div
-              className="absolute inset-0 flex flex-col justify-end p-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
-              style={{ backgroundColor: 'rgba(0,0,0,0.76)' }}
+      {/* Grid scrollable */}
+      <div
+        className="no-scrollbar overflow-y-auto flex-1"
+        style={{ WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain' }}
+      >
+        <div
+          className="grid p-2"
+          style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(88px, 1fr))', gap: '3px' }}
+        >
+          {cluster.photos.map(photo => (
+            <button
+              key={photo.id}
+              className="aspect-[4/5] overflow-hidden relative group block"
+              onClick={() => openPhoto(photo)}
+              title={`${photo.location} · ${fmt(photo.date, photo.time)}`}
             >
-              <p style={{ color: '#fff', fontSize: '0.62rem', fontWeight: 500, letterSpacing: '0.05em', lineHeight: 1.3 }}>
-                {photo.location?.split(',')[0]}
-              </p>
-              <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: '0.55rem', marginTop: 2 }}>
-                {fecha(photo.date)}
-              </p>
-            </div>
-          </button>
-        ))}
+              <img
+                src={photo.thumb || photo.url}
+                alt={photo.location}
+                loading="lazy"
+                className="w-full h-full object-cover grayscale"
+                style={{ transition: 'transform 0.45s ease', display: 'block' }}
+                onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.07)')}
+                onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
+              />
+              <div
+                className="absolute inset-0 flex flex-col justify-end p-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none"
+                style={{ backgroundColor: 'rgba(0,0,0,0.78)' }}
+              >
+                <p style={{ color: '#fff', fontSize: '0.6rem', fontWeight: 500, lineHeight: 1.3 }}>
+                  {photo.location?.split(',')[0]}
+                </p>
+                <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.52rem', marginTop: 1 }}>
+                  {fmt(photo.date, photo.time)}
+                </p>
+              </div>
+            </button>
+          ))}
+        </div>
+        <div className="h-4" />
       </div>
-      <div className="h-8" />
     </div>
   )
 }
@@ -262,6 +291,7 @@ export default function MapView() {
       ref={containerRef}
       style={{
         position:  'relative',
+        zIndex:    0,           // crea stacking context propio → panel queda dentro
         height:    'calc(100vh - 200px)',
         minHeight: '420px',
         opacity:   0,

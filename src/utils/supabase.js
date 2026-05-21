@@ -65,7 +65,7 @@ export async function uploadImage(file, id, onProgress) {
 }
 
 // ── CRUD fotos ─────────────────────────────────────────────
-const FIELDS = 'id,url,thumb,date,location,description,author,camera,iso,aperture,shutter,lat,lng'
+const FIELDS = 'id,url,thumb,date,time,location,description,author,camera,iso,aperture,shutter,lat,lng'
 
 export async function dbFetch() {
   const { data, error } = await supabase

@@ -142,7 +142,7 @@ export default function CropEditor({ src, onSave, onCancel }) {
   return (
     <div
       ref={rootRef}
-      className="fixed inset-0 z-[70] flex flex-col select-none"
+      className="fixed inset-0 z-[2400] flex flex-col select-none"
       style={{ backgroundColor: '#000', opacity: 0 }}
     >
       {/* Barra superior */}
