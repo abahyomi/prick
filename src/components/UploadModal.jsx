@@ -4,37 +4,46 @@ import { usePhotos } from '../context/PhotoContext'
 import { usePhotoUpload } from '../hooks/usePhotoUpload'
 
 const EMPTY_FORM = {
-  date: new Date().toISOString().split('T')[0],
-  location: '',
+  date:        new Date().toISOString().split('T')[0],
+  location:    '',
   description: '',
-  author: 'Abahyomi',
-  camera: '',
-  iso: '',
-  aperture: '',
-  shutter: '',
+  author:      'Abahyomi',
+  camera:      '',
+  iso:         '',
+  aperture:    '',
+  shutter:     '',
 }
 
 export default function UploadModal() {
   const { uploadModalOpen, setUploadModalOpen, addPhoto } = usePhotos()
   const { upload, uploading, progress, error } = usePhotoUpload()
 
-  const [form, setForm] = useState(EMPTY_FORM)
+  const [form,       setForm]       = useState(EMPTY_FORM)
   const [previewUrl, setPreviewUrl] = useState(null)
-  const [file, setFile] = useState(null)
-  const [dragging, setDragging] = useState(false)
+  const [file,       setFile]       = useState(null)
+  const [dragging,   setDragging]   = useState(false)
 
   const overlayRef   = useRef(null)
   const panelRef     = useRef(null)
   const fileInputRef = useRef(null)
 
+  // Abrir / cerrar con animación
   useEffect(() => {
-    if (uploadModalOpen) {
-      document.body.style.overflow = 'hidden'
-      gsap.fromTo(overlayRef.current, { opacity: 0 }, { opacity: 1, duration: 0.28 })
-      gsap.fromTo(panelRef.current, { y: 50, opacity: 0 }, { y: 0, opacity: 1, duration: 0.45, ease: 'power3.out' })
-    } else {
-      document.body.style.overflow = ''
-    }
+    if (!uploadModalOpen) { document.body.style.overflow = ''; return }
+    document.body.style.overflow = 'hidden'
+    gsap.fromTo(overlayRef.current, { opacity: 0 }, { opacity: 1, duration: 0.28 })
+    gsap.fromTo(panelRef.current,
+      { y: 56, opacity: 0 },
+      { y: 0,  opacity: 1, duration: 0.48, ease: 'power3.out' }
+    )
+  }, [uploadModalOpen])
+
+  // Cerrar con Escape
+  useEffect(() => {
+    if (!uploadModalOpen) return
+    const onKey = (e) => { if (e.key === 'Escape') close() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
   }, [uploadModalOpen])
 
   function close() {
@@ -50,17 +59,17 @@ export default function UploadModal() {
     gsap.to(overlayRef.current, { opacity: 0, duration: 0.25 })
   }
 
-  function handleFile(f) {
+  const handleFile = useCallback((f) => {
     if (!f || !f.type.startsWith('image/')) return
     setFile(f)
     setPreviewUrl(URL.createObjectURL(f))
-  }
+  }, [])
 
   const onDrop = useCallback((e) => {
     e.preventDefault()
     setDragging(false)
     handleFile(e.dataTransfer.files[0])
-  }, [])
+  }, [handleFile])
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -78,30 +87,40 @@ export default function UploadModal() {
   return (
     <div
       ref={overlayRef}
-      className="fixed inset-0 z-50 flex items-end md:items-center justify-center"
-      style={{ opacity: 0, backgroundColor: 'rgba(0,0,0,0.88)' }}
+      className="fixed inset-0 z-[60] flex items-end md:items-center justify-center"
+      style={{ opacity: 0, backgroundColor: 'rgba(0,0,0,0.92)' }}
       onClick={(e) => e.target === overlayRef.current && close()}
     >
       <div
         ref={panelRef}
-        className="bg-surface w-full md:max-w-2xl max-h-[92vh] overflow-y-auto no-scrollbar"
+        className="bg-surface w-full md:max-w-2xl max-h-[90vh] overflow-y-auto no-scrollbar"
         style={{ opacity: 0 }}
       >
-        {/* Cabecera */}
-        <div className="flex items-center justify-between px-7 py-5 sticky top-0 bg-surface z-10">
-          <span className="text-meta" style={{ color: 'var(--c-ink-dim)' }}>Nuevo fotograma</span>
-          <button onClick={close} className="text-meta hover:opacity-50 transition-opacity text-ink" aria-label="Cerrar">
+        {/* Cabecera fija */}
+        <div
+          className="flex items-center justify-between px-7 py-5 sticky top-0 bg-surface z-10"
+          style={{ borderBottom: '1px solid var(--c-ink-faint)' }}
+        >
+          <span className="text-meta" style={{ color: 'var(--c-ink-dim)' }}>
+            Nuevo fotograma
+          </span>
+          <button
+            onClick={close}
+            className="text-meta transition-opacity hover:opacity-50"
+            style={{ color: 'var(--c-ink-dim)' }}
+            aria-label="Cerrar"
+          >
             ✕
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="px-7 pb-8 space-y-7">
+        <form onSubmit={handleSubmit} className="px-7 py-7 space-y-7">
           {/* Zona de arrastre */}
           <div
-            className="relative cursor-pointer transition-all"
+            className="relative transition-all overflow-hidden"
             style={{
-              aspectRatio: previewUrl ? 'auto' : '16/7',
-              border: `1px dashed ${dragging ? 'var(--c-ink)' : 'rgba(214,214,214,0.15)'}`,
+              aspectRatio:  previewUrl ? 'auto' : '16/6',
+              border:       `1px dashed ${dragging ? 'var(--c-ink)' : 'rgba(var(--c-ink-rgb),0.14)'}`,
             }}
             onClick={() => !previewUrl && fileInputRef.current?.click()}
             onDrop={onDrop}
@@ -110,38 +129,59 @@ export default function UploadModal() {
           >
             {previewUrl ? (
               <div className="relative">
-                <img src={previewUrl} alt="Vista previa" className="w-full max-h-72 object-contain grayscale" />
+                <img
+                  src={previewUrl}
+                  alt="Vista previa"
+                  className="w-full max-h-64 object-contain grayscale"
+                />
                 <button
                   type="button"
-                  onClick={() => { setPreviewUrl(null); setFile(null) }}
-                  className="absolute top-3 right-3 text-meta bg-ink text-surface px-3 py-1 hover:opacity-70 transition-opacity"
+                  onClick={(e) => { e.stopPropagation(); setPreviewUrl(null); setFile(null) }}
+                  className="absolute top-3 right-3 text-meta transition-opacity hover:opacity-60"
+                  style={{
+                    backgroundColor: 'var(--c-ink)',
+                    color: 'var(--c-surface)',
+                    padding: '0.3rem 0.75rem',
+                  }}
                 >
                   Cambiar
                 </button>
               </div>
             ) : (
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-6">
-                <span className="text-ink" style={{ fontSize: '1.8rem', fontWeight: 200 }}>+</span>
-                <p className="text-meta" style={{ color: 'var(--c-ink-dim)' }}>Arrastra la imagen aquí o haz clic</p>
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+                <span style={{ fontSize: '1.5rem', fontWeight: 200, color: 'var(--c-ink-dim)' }}>+</span>
+                <p className="text-meta" style={{ color: 'var(--c-ink-dim)' }}>
+                  Arrastra la imagen aquí o haz clic
+                </p>
               </div>
             )}
           </div>
-          <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleFile(e.target.files[0])} />
 
-          {/* Progreso */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => handleFile(e.target.files[0])}
+          />
+
+          {/* Barra de progreso */}
           {uploading && (
-            <div className="h-px w-full relative overflow-hidden" style={{ backgroundColor: 'rgba(214,214,214,0.1)' }}>
-              <div className="absolute inset-y-0 left-0 bg-ink transition-all duration-200" style={{ width: `${progress}%` }} />
+            <div className="relative h-px w-full" style={{ backgroundColor: 'rgba(var(--c-ink-rgb),0.10)' }}>
+              <div
+                className="absolute inset-y-0 left-0 transition-all duration-200"
+                style={{ width: `${progress}%`, backgroundColor: 'var(--c-ink)' }}
+              />
             </div>
           )}
 
-          {/* Campos */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          {/* Campos en dos columnas */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
             <Campo label="Fecha" required>
-              <input type="date" value={form.date} onChange={set('date')} required className={campo} />
+              <input type="date"   value={form.date}     onChange={set('date')}     required className={campo} />
             </Campo>
             <Campo label="Lugar" required>
-              <input type="text" value={form.location} onChange={set('location')} placeholder="Ciudad, País" required className={campo} />
+              <input type="text"   value={form.location} onChange={set('location')} required className={campo} placeholder="Ciudad, País" />
             </Campo>
             <Campo label="Autor">
               <select value={form.author} onChange={set('author')} className={campo}>
@@ -151,16 +191,16 @@ export default function UploadModal() {
               </select>
             </Campo>
             <Campo label="Cámara">
-              <input type="text" value={form.camera} onChange={set('camera')} placeholder="ej. Leica M6" className={campo} />
+              <input type="text" value={form.camera}   onChange={set('camera')}   className={campo} placeholder="ej. Leica M6" />
             </Campo>
             <Campo label="ISO">
-              <input type="text" value={form.iso} onChange={set('iso')} placeholder="ej. 400" className={campo} />
+              <input type="text" value={form.iso}      onChange={set('iso')}      className={campo} placeholder="ej. 400" />
             </Campo>
             <Campo label="Apertura">
-              <input type="text" value={form.aperture} onChange={set('aperture')} placeholder="ej. f/2.8" className={campo} />
+              <input type="text" value={form.aperture} onChange={set('aperture')} className={campo} placeholder="ej. f/2.8" />
             </Campo>
             <Campo label="Velocidad">
-              <input type="text" value={form.shutter} onChange={set('shutter')} placeholder="ej. 1/250s" className={campo} />
+              <input type="text" value={form.shutter}  onChange={set('shutter')}  className={campo} placeholder="ej. 1/250s" />
             </Campo>
           </div>
 
@@ -170,21 +210,40 @@ export default function UploadModal() {
               onChange={set('description')}
               required
               rows={3}
-              placeholder="¿Qué pensabas en ese momento exacto?"
+              placeholder="¿Qué pensabas en ese instante?"
               className={`${campo} resize-none`}
             />
           </Campo>
 
-          {error && <p className="text-meta text-red-400">{error}</p>}
+          {error && (
+            <p className="text-meta" style={{ color: '#e55' }}>{error}</p>
+          )}
 
-          <div className="flex items-center justify-between pt-2">
-            <button type="button" onClick={close} className="text-meta hover:opacity-50 transition-opacity" style={{ color: 'var(--c-ink-dim)' }}>
+          {/* Acciones */}
+          <div
+            className="flex items-center justify-between pt-5"
+            style={{ borderTop: '1px solid var(--c-ink-faint)' }}
+          >
+            <button
+              type="button"
+              onClick={close}
+              className="text-meta transition-opacity hover:opacity-50"
+              style={{ color: 'var(--c-ink-dim)' }}
+            >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={!file || uploading}
-              className="text-meta bg-ink text-surface px-7 py-3 hover:opacity-70 transition-opacity disabled:opacity-25"
+              className="text-meta transition-opacity disabled:opacity-25"
+              style={{
+                backgroundColor: 'var(--c-ink)',
+                color:           'var(--c-surface)',
+                padding:         '0.5rem 1.8rem',
+                letterSpacing:   '0.20em',
+              }}
+              onMouseEnter={e => !e.currentTarget.disabled && (e.currentTarget.style.opacity = '0.72')}
+              onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
             >
               {uploading ? `Subiendo ${progress}%` : 'Añadir al archivo'}
             </button>
@@ -196,13 +255,16 @@ export default function UploadModal() {
 }
 
 const campo =
-  'w-full bg-transparent text-ink text-sm font-light py-2 focus:outline-none transition-colors border-b border-ink/10 focus:border-ink/40'
+  'w-full bg-transparent text-sm font-light py-2 focus:outline-none transition-colors'
+  + ' border-b border-[rgba(var(--c-ink-rgb),0.14)] focus:border-[rgba(var(--c-ink-rgb),0.45)]'
+  + ' text-ink'
 
 function Campo({ label, children, required }) {
   return (
     <div>
-      <label className="text-meta block mb-1" style={{ color: 'var(--c-ink-dim)' }}>
-        {label}{required && <span className="ml-1" style={{ opacity: 0.5 }}>*</span>}
+      <label className="text-meta block mb-1.5" style={{ color: 'var(--c-ink-dim)' }}>
+        {label}
+        {required && <span className="ml-1" style={{ opacity: 0.4 }}>*</span>}
       </label>
       {children}
     </div>

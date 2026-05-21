@@ -14,65 +14,83 @@ export default function Header({ ready, dark, onToggleDark }) {
     const tl = gsap.timeline({ defaults: { ease: 'power3.out' } })
 
     tl.fromTo(navRef.current,
-        { opacity: 0, y: -6 },
-        { opacity: 1, y: 0, duration: 0.55 }
+        { opacity: 0, y: -8 },
+        { opacity: 1, y: 0, duration: 0.5 }
       )
       .fromTo(titleRef.current,
-        { yPercent: 105, opacity: 0 },
+        { yPercent: 108, opacity: 0 },
         { yPercent: 0,   opacity: 1, duration: 1.0 },
-        '-=0.1'
+        '-=0.05'
       )
       .fromTo(metaRef.current,
-        { opacity: 0, y: 8 },
-        { opacity: 1, y: 0, duration: 0.55 },
-        '-=0.25'
+        { opacity: 0, y: 10 },
+        { opacity: 1, y: 0, duration: 0.6 },
+        '-=0.3'
       )
   }, [ready])
 
+  const count = photos.length.toString().padStart(3, '0')
+
   return (
     <header className="w-full">
-      {/* Nav */}
+      {/* Barra superior */}
       <div
         ref={navRef}
-        className="flex items-center justify-between px-8 pt-7 pb-2"
+        className="flex items-center justify-between px-8 pt-8 pb-0"
         style={{ opacity: 0 }}
       >
-        <span className="text-meta" style={{ color: 'var(--c-ink-dim)' }}>
-          {new Date().getFullYear()}
+        {/* Wordmark pequeño */}
+        <span
+          className="text-meta select-none"
+          style={{ color: 'var(--c-ink-dim)', letterSpacing: '0.30em' }}
+        >
+          PRICK &nbsp;/ {new Date().getFullYear()}
         </span>
 
-        <div className="flex items-center gap-7">
+        <nav className="flex items-center gap-8">
           <span className="text-meta" style={{ color: 'var(--c-ink-dim)' }}>
-            {photos.length} fotogramas
+            {count}&nbsp;fotogramas
           </span>
 
+          {/* Toggle tema */}
           <button
             onClick={onToggleDark}
-            aria-label="Cambiar tema"
-            className="text-meta transition-opacity hover:opacity-100"
-            style={{ color: 'var(--c-ink-dim)' }}
+            aria-label={dark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+            className="text-meta transition-opacity"
+            style={{ color: 'var(--c-ink-dim)', lineHeight: 1 }}
+            onMouseEnter={e => e.currentTarget.style.color = 'var(--c-ink)'}
+            onMouseLeave={e => e.currentTarget.style.color = 'var(--c-ink-dim)'}
           >
             <span className="theme-icon" />
           </button>
 
+          {/* CTA añadir */}
           <button
             onClick={() => setUploadModalOpen(true)}
-            className="text-meta text-surface bg-ink px-4 py-2 hover:opacity-70 transition-opacity"
-            style={{ letterSpacing: '0.22em' }}
+            className="text-meta transition-opacity"
+            style={{
+              backgroundColor: 'var(--c-ink)',
+              color:           'var(--c-surface)',
+              padding:         '0.45rem 1.1rem',
+              letterSpacing:   '0.20em',
+            }}
+            onMouseEnter={e => (e.currentTarget.style.opacity = '0.72')}
+            onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
           >
             + Añadir
           </button>
-        </div>
+        </nav>
       </div>
 
-      {/* Título */}
-      <div className="px-8 pt-5 pb-3 overflow-hidden">
+      {/* Título principal */}
+      <div className="px-8 pt-4 pb-2 overflow-hidden">
         <h1
           ref={titleRef}
-          className="font-bold leading-none select-none text-ink"
+          className="font-bold leading-none select-none"
           style={{
-            fontSize:      'clamp(5rem, 18vw, 18rem)',
-            letterSpacing: '-0.04em',
+            fontSize:      'clamp(4.5rem, 17vw, 17rem)',
+            letterSpacing: '-0.045em',
+            color:         'var(--c-ink)',
             opacity:       0,
           }}
         >
@@ -83,17 +101,21 @@ export default function Header({ ready, dark, onToggleDark }) {
       {/* Subtítulo */}
       <div
         ref={metaRef}
-        className="flex flex-wrap items-end justify-between gap-4 px-8 pb-10"
+        className="flex flex-wrap items-baseline justify-between gap-3 px-8 pb-12"
         style={{ opacity: 0 }}
       >
-        <div>
-          <p
-            className="font-medium leading-tight text-ink"
-            style={{ fontSize: 'clamp(0.75rem, 2vw, 1.1rem)', letterSpacing: '0.18em', textTransform: 'uppercase' }}
-          >
-            Abahyomi &amp; Alexandra
-          </p>
-        </div>
+        <p
+          className="font-medium"
+          style={{
+            fontSize:      'clamp(0.7rem, 1.8vw, 1rem)',
+            letterSpacing: '0.22em',
+            textTransform: 'uppercase',
+            color:         'var(--c-ink)',
+            opacity:       0.55,
+          }}
+        >
+          Abahyomi &amp; Alexandra
+        </p>
         <p className="text-meta" style={{ color: 'var(--c-ink-dim)' }}>
           La memoria hecha imagen.
         </p>

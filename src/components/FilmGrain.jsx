@@ -1,40 +1,52 @@
 import { useRef, useEffect } from 'react'
 
-// Animated canvas film grain — runs at ~20fps for performance
+// Film grain that reads against both darks AND lights:
+//   overlay blend = screen-like on dark pixels + multiply-like on light pixels
+//
+// Full device-pixel-ratio resolution so each noise dot = exactly 1 screen pixel.
+// crypto.getRandomValues() for hardware-speed bulk entropy (~60× faster than Math.random).
+
+const CHUNK = 65536 // max bytes per crypto.getRandomValues call
+
 export default function FilmGrain() {
   const canvasRef = useRef(null)
 
   useEffect(() => {
     const canvas = canvasRef.current
-    const ctx    = canvas.getContext('2d')
-    let rafId
-    let tick = 0
+    const ctx    = canvas.getContext('2d', { alpha: false })
+    let   rafId
+    let   tick  = 0
+    let   gray  = null // reuse typed array across frames
 
     function resize() {
-      // Half-resolution canvas, CSS stretches it — cheaper than full-res
-      canvas.width  = Math.ceil(window.innerWidth  / 1.5)
-      canvas.height = Math.ceil(window.innerHeight / 1.5)
+      const dpr    = Math.min(window.devicePixelRatio || 1, 2)
+      canvas.width  = Math.ceil(window.innerWidth  * dpr)
+      canvas.height = Math.ceil(window.innerHeight * dpr)
+      gray = new Uint8Array(canvas.width * canvas.height)
     }
 
     function draw() {
       tick++
-      // ~20 fps: skip 2 out of every 3 animation frames
-      if (tick % 3 !== 0) {
+      // 12 fps — skip 4 of every 5 animation frames
+      if (tick % 5 !== 0) {
         rafId = requestAnimationFrame(draw)
         return
       }
 
       const { width, height } = canvas
-      const imageData = ctx.createImageData(width, height)
-      const data = imageData.data
-      const len  = data.length
 
-      for (let i = 0; i < len; i += 4) {
-        const v = (Math.random() * 255) | 0
-        data[i]     = v
-        data[i + 1] = v
-        data[i + 2] = v
-        data[i + 3] = 255
+      // Fill luminance buffer with hardware entropy
+      for (let off = 0; off < gray.length; off += CHUNK) {
+        crypto.getRandomValues(gray.subarray(off, Math.min(off + CHUNK, gray.length)))
+      }
+
+      // Write grayscale noise into ImageData
+      const imageData = ctx.createImageData(width, height)
+      const buf = imageData.data // Uint8ClampedArray
+
+      for (let i = 0, j = 0; i < buf.length; i += 4, j++) {
+        buf[i] = buf[i + 1] = buf[i + 2] = gray[j]
+        buf[i + 3] = 255
       }
 
       ctx.putImageData(imageData, 0, 0)
@@ -42,7 +54,7 @@ export default function FilmGrain() {
     }
 
     resize()
-    window.addEventListener('resize', resize)
+    window.addEventListener('resize', resize, { passive: true })
     draw()
 
     return () => {
@@ -62,8 +74,9 @@ export default function FilmGrain() {
         height:        '100%',
         pointerEvents: 'none',
         zIndex:        9998,
-        opacity:       0.038,
-        mixBlendMode:  'screen',
+        opacity:       0.055,
+        // overlay = screen on darks + multiply on lights → grain everywhere
+        mixBlendMode:  'overlay',
       }}
     />
   )
