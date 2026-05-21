@@ -14,6 +14,8 @@ const EMPTY_FORM = {
   iso:         '',
   aperture:    '',
   shutter:     '',
+  lat:         null,
+  lng:         null,
 }
 
 // ── EXIF helpers ────────────────────────────────────────────
@@ -56,6 +58,9 @@ async function extractExif(file) {
     const lat = tags.latitude  ?? tags.GPSLatitude
     const lng = tags.longitude ?? tags.GPSLongitude
     if (lat != null && lng != null && !isNaN(lat) && !isNaN(lng)) {
+      // Guardar coordenadas numéricas para el mapa
+      result.lat = parseFloat(lat.toFixed(6))
+      result.lng = parseFloat(lng.toFixed(6))
       result.location = await reverseGeocode(lat, lng)
     }
 
