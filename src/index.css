@@ -2,6 +2,21 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ─── Color tokens ─────────────────────────────────────────── */
+:root {
+  --c-surface: #ffffff;
+  --c-ink:     #000000;
+  --shadow-close: 0 28px 80px rgba(0, 0, 0, 0.32);
+  --shadow-mid:   0 14px 44px rgba(0, 0, 0, 0.16);
+}
+
+html.dark {
+  --c-surface: #000000;
+  --c-ink:     #ffffff;
+  --shadow-close: 0 28px 80px rgba(255, 255, 255, 0.08);
+  --shadow-mid:   0 14px 44px rgba(255, 255, 255, 0.04);
+}
+
 @layer base {
   * {
     box-sizing: border-box;
@@ -16,15 +31,16 @@
   }
 
   body {
-    background-color: #ffffff;
-    color: #000000;
+    background-color: var(--c-surface);
+    color: var(--c-ink);
     font-family: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
     overflow-x: hidden;
+    transition: background-color 0.3s ease, color 0.3s ease;
   }
 
   ::selection {
-    background: #000000;
-    color: #ffffff;
+    background: var(--c-ink);
+    color: var(--c-surface);
   }
 
   img {
@@ -49,25 +65,22 @@
     font-weight: 500;
   }
 
-  .border-swiss {
-    border: 1px solid #000000;
-  }
-
-  .grid-line {
-    border-bottom: 1px solid #000000;
-  }
-
-  /* Hide scrollbar but keep functionality */
-  .no-scrollbar::-webkit-scrollbar {
-    display: none;
-  }
+  /* Hide scrollbar */
+  .no-scrollbar::-webkit-scrollbar { display: none; }
   .no-scrollbar {
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
+
+  /* Dark mode toggle icon */
+  .theme-icon::before {
+    content: '◐';
+  }
+  html.dark .theme-icon::before {
+    content: '◑';
+  }
 }
 
-/* GSAP will animate these initial states */
 .gsap-hidden {
   opacity: 0;
   visibility: hidden;

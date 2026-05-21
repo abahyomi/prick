@@ -7,17 +7,13 @@ export default function PhotoDetail() {
   const [editing, setEditing] = useState(false)
   const [editForm, setEditForm] = useState({})
 
-  const overlayRef = useRef(null)
-  const imgRef = useRef(null)
-  const contentRef = useRef(null)
-  const metaRef = useRef(null)
+  const overlayRef  = useRef(null)
+  const imgRef      = useRef(null)
+  const contentRef  = useRef(null)
+  const metaRef     = useRef(null)
 
-  // Animate in whenever a photo is selected
   useEffect(() => {
-    if (!selectedPhoto) {
-      setEditing(false)
-      return
-    }
+    if (!selectedPhoto) { setEditing(false); return }
     setEditForm({ ...selectedPhoto })
     document.body.style.overflow = 'hidden'
 
@@ -37,16 +33,13 @@ export default function PhotoDetail() {
 
   function close() {
     gsap.to(overlayRef.current, {
-      opacity: 0,
-      duration: 0.25,
+      opacity: 0, duration: 0.25,
       onComplete: () => setSelectedPhoto(null),
     })
   }
 
   function handleDelete() {
-    if (window.confirm('Remove this frame permanently?')) {
-      deletePhoto(selectedPhoto.id)
-    }
+    if (window.confirm('Remove this frame permanently?')) deletePhoto(selectedPhoto.id)
   }
 
   function handleSave() {
@@ -60,24 +53,18 @@ export default function PhotoDetail() {
   if (!selectedPhoto) return null
 
   const formatted = new Date(selectedPhoto.date).toLocaleDateString('en-GB', {
-    weekday: 'long',
-    day: '2-digit',
-    month: 'long',
-    year: 'numeric',
+    weekday: 'long', day: '2-digit', month: 'long', year: 'numeric',
   })
 
   return (
     <div
       ref={overlayRef}
-      className="fixed inset-0 z-50 bg-white overflow-y-auto no-scrollbar"
+      className="fixed inset-0 z-50 bg-surface overflow-y-auto no-scrollbar"
       style={{ opacity: 0 }}
     >
-      {/* Close + controls bar */}
-      <div className="sticky top-0 z-10 bg-white border-b border-black flex items-center justify-between px-6 py-4">
-        <button
-          onClick={close}
-          className="text-meta hover:opacity-40 transition-opacity flex items-center gap-2"
-        >
+      {/* Controls bar */}
+      <div className="sticky top-0 z-10 bg-surface border-b border-ink flex items-center justify-between px-6 py-4">
+        <button onClick={close} className="text-meta text-ink hover:opacity-40 transition-opacity flex items-center gap-2">
           <span style={{ fontSize: '1rem', lineHeight: 1 }}>←</span>
           <span>Back</span>
         </button>
@@ -86,14 +73,11 @@ export default function PhotoDetail() {
             <>
               <button
                 onClick={() => setEditing(true)}
-                className="text-meta border border-black px-4 py-2 hover:bg-black hover:text-white transition-colors duration-200"
+                className="text-meta border border-ink px-4 py-2 hover:bg-ink hover:text-surface transition-colors duration-200"
               >
                 Edit
               </button>
-              <button
-                onClick={handleDelete}
-                className="text-meta hover:opacity-40 transition-opacity"
-              >
+              <button onClick={handleDelete} className="text-meta text-ink hover:opacity-40 transition-opacity">
                 Delete
               </button>
             </>
@@ -101,14 +85,11 @@ export default function PhotoDetail() {
             <>
               <button
                 onClick={handleSave}
-                className="text-meta bg-black text-white px-4 py-2 hover:bg-white hover:text-black border border-black transition-colors duration-200"
+                className="text-meta bg-ink text-surface px-4 py-2 hover:bg-surface hover:text-ink border border-ink transition-colors duration-200"
               >
                 Save
               </button>
-              <button
-                onClick={() => setEditing(false)}
-                className="text-meta hover:opacity-40 transition-opacity"
-              >
+              <button onClick={() => setEditing(false)} className="text-meta text-ink hover:opacity-40 transition-opacity">
                 Cancel
               </button>
             </>
@@ -116,10 +97,10 @@ export default function PhotoDetail() {
         </div>
       </div>
 
-      {/* Main layout: image + editorial text */}
+      {/* Image + text layout */}
       <div className="grid grid-cols-1 md:grid-cols-12 min-h-[calc(100vh-60px)]">
         {/* Image column */}
-        <div className="md:col-span-7 border-b md:border-b-0 md:border-r border-black flex items-center justify-center bg-black">
+        <div className="md:col-span-7 border-b md:border-b-0 md:border-r border-ink flex items-center justify-center bg-ink">
           <img
             ref={imgRef}
             src={selectedPhoto.url}
@@ -132,89 +113,52 @@ export default function PhotoDetail() {
         {/* Content column */}
         <div
           ref={contentRef}
-          className="md:col-span-5 px-8 py-10 flex flex-col justify-between"
+          className="md:col-span-5 px-8 py-10 flex flex-col justify-between bg-surface"
           style={{ opacity: 0 }}
         >
           <div ref={metaRef} className="space-y-8">
-            {/* Date & location */}
             <div>
               {editing ? (
-                <input
-                  type="date"
-                  value={editForm.date}
-                  onChange={set('date')}
-                  className={editInputClass}
-                />
+                <input type="date" value={editForm.date} onChange={set('date')} className={editInputClass} />
               ) : (
                 <p className="text-meta opacity-50">{formatted}</p>
               )}
               {editing ? (
-                <input
-                  type="text"
-                  value={editForm.location}
-                  onChange={set('location')}
-                  className={`${editInputClass} mt-2`}
-                  placeholder="Location"
-                />
+                <input type="text" value={editForm.location} onChange={set('location')} className={`${editInputClass} mt-2`} placeholder="Location" />
               ) : (
-                <h2
-                  className="font-black leading-none mt-1"
-                  style={{ fontSize: 'clamp(1.8rem, 4vw, 3.5rem)', letterSpacing: '-0.03em' }}
-                >
+                <h2 className="font-black leading-none mt-1 text-ink" style={{ fontSize: 'clamp(1.8rem, 4vw, 3.5rem)', letterSpacing: '-0.03em' }}>
                   {selectedPhoto.location}
                 </h2>
               )}
             </div>
 
-            {/* Description */}
             <div>
               <p className="text-meta opacity-40 mb-2">Thought</p>
               {editing ? (
-                <textarea
-                  value={editForm.description}
-                  onChange={set('description')}
-                  rows={4}
-                  className={`${editInputClass} resize-none`}
-                />
+                <textarea value={editForm.description} onChange={set('description')} rows={4} className={`${editInputClass} resize-none`} />
               ) : (
-                <p className="font-light text-base leading-relaxed">{selectedPhoto.description}</p>
+                <p className="font-light text-base leading-relaxed text-ink">{selectedPhoto.description}</p>
               )}
             </div>
 
-            {/* Technical metadata table */}
             <div>
               <p className="text-meta opacity-40 mb-3">Technical</p>
-              <div className="space-y-0">
-                {[
-                  ['Camera', 'camera'],
-                  ['ISO', 'iso'],
-                  ['Aperture', 'aperture'],
-                  ['Shutter', 'shutter'],
-                  ['Author', 'author'],
-                ].map(([label, key]) => (
-                  <div key={key} className="flex justify-between items-baseline py-2 border-b border-black/10">
+              <div>
+                {[['Camera','camera'],['ISO','iso'],['Aperture','aperture'],['Shutter','shutter'],['Author','author']].map(([label, key]) => (
+                  <div key={key} className="flex justify-between items-baseline py-2 border-b border-ink/10">
                     <span className="text-meta opacity-40">{label}</span>
                     {editing ? (
                       key === 'author' ? (
-                        <select
-                          value={editForm[key] || ''}
-                          onChange={set(key)}
-                          className="text-meta border-b border-black focus:outline-none bg-transparent"
-                        >
+                        <select value={editForm[key] || ''} onChange={set(key)} className="text-meta border-b border-ink focus:outline-none bg-transparent text-ink">
                           <option>Abahyomi</option>
                           <option>Alexandra</option>
                           <option>Both</option>
                         </select>
                       ) : (
-                        <input
-                          type="text"
-                          value={editForm[key] || ''}
-                          onChange={set(key)}
-                          className="text-meta text-right border-b border-black focus:outline-none bg-transparent w-28"
-                        />
+                        <input type="text" value={editForm[key] || ''} onChange={set(key)} className="text-meta text-right border-b border-ink focus:outline-none bg-transparent text-ink w-28" />
                       )
                     ) : (
-                      <span className="text-meta">{selectedPhoto[key] || '—'}</span>
+                      <span className="text-meta text-ink">{selectedPhoto[key] || '—'}</span>
                     )}
                   </div>
                 ))}
@@ -222,8 +166,7 @@ export default function PhotoDetail() {
             </div>
           </div>
 
-          {/* Bottom: photo index indicator */}
-          <div className="mt-10 pt-4 border-t border-black">
+          <div className="mt-10 pt-4 border-t border-ink">
             <p className="text-meta opacity-30">PRICK / Visual Archive</p>
           </div>
         </div>
@@ -233,4 +176,4 @@ export default function PhotoDetail() {
 }
 
 const editInputClass =
-  'w-full border-b border-black focus:outline-none bg-transparent text-sm font-light py-1'
+  'w-full border-b border-ink focus:outline-none bg-transparent text-ink text-sm font-light py-1'

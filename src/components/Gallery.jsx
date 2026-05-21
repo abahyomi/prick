@@ -5,99 +5,125 @@ import { usePhotos } from '../context/PhotoContext'
 
 gsap.registerPlugin(ScrollTrigger)
 
-// Asymmetric grid layout — each slot defines col-span and row-span
-// Pattern repeats every 5 photos
+// Each slot: column span, aspect ratio, and depth level (0=far, 1=mid, 2=close)
 const SLOT_PATTERNS = [
-  { col: 'col-span-7', aspect: 'aspect-[4/5]' },     // Large portrait
-  { col: 'col-span-5', aspect: 'aspect-square' },     // Medium square
-  { col: 'col-span-4', aspect: 'aspect-[3/4]' },     // Small portrait
-  { col: 'col-span-8', aspect: 'aspect-[16/9]' },    // Wide landscape
-  { col: 'col-span-5', aspect: 'aspect-[4/3]' },     // Medium landscape
-  { col: 'col-span-7', aspect: 'aspect-[3/2]' },     // Wide
-  { col: 'col-span-5', aspect: 'aspect-[4/5]' },     // Medium portrait
+  { col: 'col-span-7', aspect: 'aspect-[4/5]',   depth: 2 }, // Large portrait  — close
+  { col: 'col-span-5', aspect: 'aspect-square',   depth: 0 }, // Square          — far
+  { col: 'col-span-4', aspect: 'aspect-[3/4]',    depth: 1 }, // Small portrait  — mid
+  { col: 'col-span-8', aspect: 'aspect-[16/9]',   depth: 0 }, // Wide landscape  — far
+  { col: 'col-span-5', aspect: 'aspect-[4/3]',    depth: 2 }, // Medium land.    — close
+  { col: 'col-span-7', aspect: 'aspect-[3/2]',    depth: 1 }, // Wide            — mid
+  { col: 'col-span-5', aspect: 'aspect-[4/5]',    depth: 0 }, // Medium portrait — far
+]
+
+// Depth config — simulates Z-axis via scale, shadow and parallax scroll speed
+const DEPTH_CONFIG = [
+  // far (0): subtle, recedes, slow scroll
+  { scale: 0.975, parallaxY: -30,  shadow: 'none' },
+  // mid (1): neutral depth
+  { scale: 1.0,   parallaxY: -65,  shadow: 'var(--shadow-mid)' },
+  // close (2): pops forward, fast scroll
+  { scale: 1.03,  parallaxY: -110, shadow: 'var(--shadow-close)' },
 ]
 
 function PhotoCard({ photo, index, onClick }) {
-  const cardRef = useRef(null)
-  const imgRef = useRef(null)
-  const overlayRef = useRef(null)
-  const slot = SLOT_PATTERNS[index % SLOT_PATTERNS.length]
+  const parallaxRef = useRef(null) // outer: receives scroll parallax
+  const cardRef     = useRef(null) // inner: receives reveal animation
+  const imgRef      = useRef(null)
+  const overlayRef  = useRef(null)
 
-  // Scroll-triggered reveal
+  const slot  = SLOT_PATTERNS[index % SLOT_PATTERNS.length]
+  const depth = DEPTH_CONFIG[slot.depth]
+
+  // Scroll reveal (on inner card)
   useEffect(() => {
-    const el = cardRef.current
     gsap.fromTo(
-      el,
-      { opacity: 0, y: 40 },
+      cardRef.current,
+      { opacity: 0, y: 50 },
       {
         opacity: 1,
         y: 0,
-        duration: 0.8,
+        duration: 0.9,
         ease: 'power3.out',
+        delay: (index % 3) * 0.07,
         scrollTrigger: {
-          trigger: el,
-          start: 'top 90%',
+          trigger: parallaxRef.current,
+          start: 'top 92%',
           toggleActions: 'play none none none',
         },
-        delay: (index % 3) * 0.08,
       }
     )
-  }, [index])
 
-  // Hover — subtle scale + overlay fade
+    // Parallax scroll — different speed per depth layer (on outer wrapper)
+    gsap.to(parallaxRef.current, {
+      y: depth.parallaxY,
+      ease: 'none',
+      scrollTrigger: {
+        trigger: parallaxRef.current,
+        start: 'top bottom',
+        end: 'bottom top',
+        scrub: 1.8,
+      },
+    })
+  }, [index, depth.parallaxY])
+
   function handleMouseEnter() {
-    gsap.to(imgRef.current, { scale: 1.03, duration: 0.5, ease: 'power2.out' })
+    gsap.to(imgRef.current, { scale: 1.04, duration: 0.55, ease: 'power2.out' })
     gsap.to(overlayRef.current, { opacity: 1, duration: 0.3 })
   }
-
   function handleMouseLeave() {
-    gsap.to(imgRef.current, { scale: 1, duration: 0.5, ease: 'power2.inOut' })
+    gsap.to(imgRef.current, { scale: 1, duration: 0.55, ease: 'power2.inOut' })
     gsap.to(overlayRef.current, { opacity: 0, duration: 0.3 })
   }
 
   const formatted = new Date(photo.date).toLocaleDateString('en-GB', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
+    day: '2-digit', month: 'short', year: 'numeric',
   })
 
   return (
-    <div
-      ref={cardRef}
-      className={`${slot.col} cursor-pointer group`}
-      style={{ opacity: 0 }}
-      onClick={() => onClick(photo)}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
-    >
-      {/* Image container */}
-      <div className={`relative overflow-hidden ${slot.aspect} border border-black`}>
-        <img
-          ref={imgRef}
-          src={photo.thumb || photo.url}
-          alt={photo.description}
-          loading="lazy"
-          className="w-full h-full object-cover grayscale"
-          style={{ willChange: 'transform' }}
-        />
+    <div ref={parallaxRef} className={`${slot.col}`} style={{ willChange: 'transform' }}>
+      <div
+        ref={cardRef}
+        className="cursor-pointer"
+        style={{
+          opacity: 0,
+          transform: `scale(${depth.scale})`,
+          transformOrigin: 'center bottom',
+          boxShadow: depth.shadow,
+        }}
+        onClick={() => onClick(photo)}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+      >
+        {/* Image container */}
+        <div className={`relative overflow-hidden ${slot.aspect} border border-ink`}>
+          <img
+            ref={imgRef}
+            src={photo.thumb || photo.url}
+            alt={photo.description}
+            loading="lazy"
+            className="w-full h-full object-cover grayscale"
+            style={{ willChange: 'transform' }}
+          />
 
-        {/* Hover overlay with description */}
-        <div
-          ref={overlayRef}
-          className="absolute inset-0 bg-black flex flex-col justify-end p-4 opacity-0"
-          style={{ willChange: 'opacity' }}
-        >
-          <p className="text-white font-light text-sm leading-snug line-clamp-3">
-            {photo.description}
-          </p>
-          <p className="text-meta text-white mt-3 opacity-60">{photo.author}</p>
+          {/* Hover overlay */}
+          <div
+            ref={overlayRef}
+            className="absolute inset-0 bg-ink flex flex-col justify-end p-4 opacity-0"
+            style={{ willChange: 'opacity' }}
+          >
+            <p className="text-surface font-light text-sm leading-snug line-clamp-3">
+              {photo.description}
+            </p>
+            <p className="text-meta text-surface mt-3 opacity-60">{photo.author}</p>
+          </div>
         </div>
-      </div>
 
-      {/* Caption strip */}
-      <div className="flex items-baseline justify-between pt-2 pb-1">
-        <span className="text-meta opacity-50">{photo.location}</span>
-        <span className="text-meta opacity-50">{formatted}</span>
+        {/* Caption */}
+        <div className="flex items-baseline justify-between pt-2 pb-1">
+          <span className="text-meta opacity-50">{photo.location}</span>
+          <span className="text-meta opacity-50">{formatted}</span>
+        </div>
       </div>
     </div>
   )
@@ -105,9 +131,7 @@ function PhotoCard({ photo, index, onClick }) {
 
 export default function Gallery() {
   const { photos, setSelectedPhoto, setUploadModalOpen } = usePhotos()
-  const gridRef = useRef(null)
 
-  // Stagger the whole grid on first paint (for photos already visible)
   useEffect(() => {
     ScrollTrigger.refresh()
   }, [photos.length])
@@ -118,7 +142,7 @@ export default function Gallery() {
         <p className="text-meta opacity-40 mb-6">No frames yet.</p>
         <button
           onClick={() => setUploadModalOpen(true)}
-          className="text-meta border border-black px-6 py-3 hover:bg-black hover:text-white transition-colors duration-200"
+          className="text-meta border border-ink px-6 py-3 hover:bg-ink hover:text-surface transition-colors duration-200"
         >
           Add the first frame
         </button>
@@ -127,27 +151,21 @@ export default function Gallery() {
   }
 
   return (
-    <section className="px-6 py-10">
+    <section className="px-6 py-10 overflow-visible">
       {/* Section label */}
-      <div className="flex items-center justify-between mb-8 pb-4 border-b border-black">
+      <div className="flex items-center justify-between mb-8 pb-4 border-b border-ink">
         <span className="text-meta opacity-50">Archive</span>
         <span className="text-meta opacity-50">{photos.length.toString().padStart(3, '0')}</span>
       </div>
 
-      {/* Asymmetric 12-column grid */}
-      <div ref={gridRef} className="grid grid-cols-12 gap-4 md:gap-6">
+      {/* 12-col asymmetric grid with 3D depth illusion */}
+      <div className="grid grid-cols-12 gap-4 md:gap-8 overflow-visible">
         {photos.map((photo, i) => (
-          <PhotoCard
-            key={photo.id}
-            photo={photo}
-            index={i}
-            onClick={setSelectedPhoto}
-          />
+          <PhotoCard key={photo.id} photo={photo} index={i} onClick={setSelectedPhoto} />
         ))}
       </div>
 
-      {/* Footer line */}
-      <div className="mt-16 pt-4 border-t border-black flex justify-between">
+      <div className="mt-24 pt-4 border-t border-ink flex justify-between">
         <span className="text-meta opacity-30">PRICK / Vol. I</span>
         <span className="text-meta opacity-30">Abahyomi &amp; Alexandra</span>
       </div>

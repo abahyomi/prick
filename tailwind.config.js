@@ -1,8 +1,13 @@
 /** @type {import('tailwindcss').Config} */
 export default {
+  darkMode: 'class',
   content: ['./index.html', './src/**/*.{js,jsx}'],
   theme: {
     extend: {
+      colors: {
+        surface: 'var(--c-surface)',
+        ink:     'var(--c-ink)',
+      },
       fontFamily: {
         sans: ['Inter', 'Helvetica Neue', 'Helvetica', 'Arial', 'sans-serif'],
       },
@@ -13,11 +18,11 @@ export default {
       },
       letterSpacing: {
         tightest: '-0.06em',
-        widest2: '0.3em',
-        widest3: '0.5em',
+        widest2:  '0.3em',
+        widest3:  '0.5em',
       },
       gridTemplateColumns: {
-        'gallery': 'repeat(12, 1fr)',
+        gallery: 'repeat(12, 1fr)',
       },
     },
   },

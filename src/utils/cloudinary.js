@@ -35,8 +35,8 @@ export async function uploadToCloudinary(file, onProgress) {
         const data = JSON.parse(xhr.responseText)
         // Build a grayscale thumb via Cloudinary transformation
         const baseUrl = data.secure_url
-        const thumb = baseUrl.replace('/upload/', '/upload/w_600,e_grayscale,q_70/')
-        const url = baseUrl.replace('/upload/', '/upload/w_1800,e_grayscale,q_85/')
+        const thumb = baseUrl.replace('/upload/', '/upload/w_1080,e_grayscale,q_75/')
+        const url   = baseUrl.replace('/upload/', '/upload/w_1080,e_grayscale,q_85/')
         resolve({ url, thumb, publicId: data.public_id })
       } else {
         reject(new Error('Upload failed'))
