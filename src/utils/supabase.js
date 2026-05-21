@@ -85,12 +85,16 @@ export async function dbDelete(id) {
 
 // ── Seed fotos reales al primer uso ───────────────────────
 export async function seedIfEmpty(mockPhotos) {
-  const { count } = await supabase
-    .from('photos').select('*', { count: 'exact', head: true })
-  if ((count ?? 0) === 0) {
-    const rows = mockPhotos.map(({ _pendingFile, ...p }) => p)
-    await supabase.from('photos').insert(rows)
-  }
+  try {
+    const { count, error } = await supabase
+      .from('photos').select('*', { count: 'exact', head: true })
+    if (error) { console.warn('[seed] count error:', error.message); return }
+    if ((count ?? 0) === 0) {
+      const rows = mockPhotos.map(({ _pendingFile, ...p }) => p)
+      const { error: insertErr } = await supabase.from('photos').insert(rows)
+      if (insertErr) console.warn('[seed] insert error:', insertErr.message)
+    }
+  } catch (e) { console.warn('[seed]', e) }
 }
 
 // ── Real-time: notifica a todos los dispositivos ───────────
