@@ -12,7 +12,6 @@ const DEPTHS = [
   { parallaxY: -20, scale: 1.000, shadow: 'var(--shadow-float)' },
   { parallaxY: -38, scale: 1.032, shadow: 'var(--shadow-float-up)' },
 ]
-const ASPECTS = ['aspect-[3/4]', 'aspect-[4/5]', 'aspect-square', 'aspect-[4/5]', 'aspect-[3/4]']
 
 // ─── Tarjeta de cuadrícula ───────────────────────────────────
 function GridCard({ photo, index, onClick }) {
@@ -21,8 +20,7 @@ function GridCard({ photo, index, onClick }) {
   const imgRef     = useRef(null)
   const overlayRef = useRef(null)
 
-  const depth  = DEPTHS[DEPTH_SEQ[index % DEPTH_SEQ.length]]
-  const aspect = ASPECTS[index % ASPECTS.length]
+  const depth = DEPTHS[DEPTH_SEQ[index % DEPTH_SEQ.length]]
 
   useEffect(() => {
     // Aparición suave: blur + sube
@@ -116,10 +114,8 @@ function GridCard({ photo, index, onClick }) {
         onMouseEnter={handleEnter}
         onMouseLeave={handleLeave}
       >
-        {/* Foto */}
-        <div
-          className={`relative overflow-hidden ${aspect} photo-placeholder`}
-        >
+        {/* Foto — siempre 4:5 con cover */}
+        <div className="relative overflow-hidden aspect-[4/5] photo-placeholder">
           <img
             ref={imgRef}
             src={photo.thumb || photo.url}
@@ -271,7 +267,64 @@ function ListRow({ photo, index, onClick }) {
   )
 }
 
-// ─── Galería ─────────────────────────────────────────────────
+// ─── Tarjeta galería infinita ────────────────────────────────
+// Sin texto, sin márgenes, edge-to-edge. Contacto puro.
+function GaleriaCard({ photo, index, onClick }) {
+  const cardRef = useRef(null)
+  const imgRef  = useRef(null)
+
+  useEffect(() => {
+    gsap.fromTo(cardRef.current,
+      { opacity: 0 },
+      {
+        opacity: 1,
+        duration: 0.6,
+        ease: 'power2.out',
+        delay: (index % 3) * 0.06,
+        scrollTrigger: {
+          trigger: cardRef.current,
+          start:   'top 102%',
+          toggleActions: 'play none none none',
+        },
+      }
+    )
+    return () => ScrollTrigger.getAll()
+      .filter(t => t.trigger === cardRef.current)
+      .forEach(t => t.kill())
+  }, [index])
+
+  function handleEnter() {
+    gsap.to(imgRef.current, { scale: 1.04, duration: 0.6, ease: 'power2.out' })
+  }
+  function handleLeave() {
+    gsap.to(imgRef.current, { scale: 1, duration: 0.6, ease: 'power2.inOut' })
+  }
+
+  const onImgLoad = useCallback(e => e.target.classList.add('loaded'), [])
+
+  return (
+    <div
+      ref={cardRef}
+      className="aspect-[4/5] overflow-hidden relative"
+      style={{ opacity: 0 }}
+      onClick={() => onClick(photo)}
+      onMouseEnter={handleEnter}
+      onMouseLeave={handleLeave}
+    >
+      <img
+        ref={imgRef}
+        src={photo.thumb || photo.url}
+        alt=""
+        loading="lazy"
+        onLoad={onImgLoad}
+        className="lazy-fade w-full h-full object-cover grayscale absolute inset-0"
+        style={{ willChange: 'transform' }}
+      />
+    </div>
+  )
+}
+
+// ─── Galería principal ────────────────────────────────────────
 export default function Gallery() {
   const { photos, setSelectedPhoto, setUploadModalOpen } = usePhotos()
   const [view, setView] = useState('grid')
@@ -300,6 +353,8 @@ export default function Gallery() {
     )
   }
 
+  const VIEWS = [['grid', 'Cuadrícula'], ['list', 'Lista'], ['galeria', 'Galería']]
+
   return (
     <section className="overflow-visible">
       {/* Barra de controles */}
@@ -307,15 +362,15 @@ export default function Gallery() {
         <span className="text-meta" style={{ color: 'var(--c-ink-dim)' }}>
           {photos.length.toString().padStart(3, '0')}
         </span>
-        <div className="flex gap-7">
-          {[['grid', 'Cuadrícula'], ['list', 'Lista']].map(([m, label]) => (
+        <div className="flex gap-6">
+          {VIEWS.map(([m, label]) => (
             <button
               key={m}
               onClick={() => setView(m)}
               className="text-meta transition-all"
               style={{
                 color:   view === m ? 'var(--c-ink)' : 'var(--c-ink-dim)',
-                opacity: view === m ? 1 : 0.7,
+                opacity: view === m ? 1 : 0.65,
               }}
             >
               {label}
@@ -341,6 +396,19 @@ export default function Gallery() {
         <div key="list" className="view-enter list-rows px-8 pb-32">
           {photos.map((photo, i) => (
             <ListRow key={photo.id} photo={photo} index={i} onClick={setSelectedPhoto} />
+          ))}
+        </div>
+      )}
+
+      {/* Vista galería infinita — sin texto, contacto puro, edge-to-edge */}
+      {view === 'galeria' && (
+        <div
+          key="galeria"
+          className="view-enter grid grid-cols-2 md:grid-cols-3"
+          style={{ gap: 0 }}
+        >
+          {photos.map((photo, i) => (
+            <GaleriaCard key={photo.id} photo={photo} index={i} onClick={setSelectedPhoto} />
           ))}
         </div>
       )}

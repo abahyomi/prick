@@ -177,11 +177,11 @@ export default function UploadModal() {
 
           {/* Campos en dos columnas */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-            <Campo label="Fecha" required>
-              <input type="date"   value={form.date}     onChange={set('date')}     required className={campo} />
+            <Campo label="Fecha">
+              <input type="date" value={form.date} onChange={set('date')} className={campo} />
             </Campo>
-            <Campo label="Lugar" required>
-              <input type="text"   value={form.location} onChange={set('location')} required className={campo} placeholder="Ciudad, País" />
+            <Campo label="Lugar">
+              <input type="text" value={form.location} onChange={set('location')} className={campo} placeholder="Ciudad, País" />
             </Campo>
             <Campo label="Autor">
               <select value={form.author} onChange={set('author')} className={campo}>
@@ -204,11 +204,10 @@ export default function UploadModal() {
             </Campo>
           </div>
 
-          <Campo label="Pensamiento" required>
+          <Campo label="Pensamiento">
             <textarea
               value={form.description}
               onChange={set('description')}
-              required
               rows={3}
               placeholder="¿Qué pensabas en ese instante?"
               className={`${campo} resize-none`}
@@ -259,12 +258,11 @@ const campo =
   + ' border-b border-[rgba(var(--c-ink-rgb),0.14)] focus:border-[rgba(var(--c-ink-rgb),0.45)]'
   + ' text-ink'
 
-function Campo({ label, children, required }) {
+function Campo({ label, children }) {
   return (
     <div>
       <label className="text-meta block mb-1.5" style={{ color: 'var(--c-ink-dim)' }}>
         {label}
-        {required && <span className="ml-1" style={{ opacity: 0.4 }}>*</span>}
       </label>
       {children}
     </div>

@@ -7,15 +7,17 @@ export default function PhotoDetail() {
   const { selectedPhoto, setSelectedPhoto, updatePhoto, deletePhoto } = usePhotos()
   const { upload, uploading, progress } = usePhotoUpload()
 
-  const [editing,  setEditing]  = useState(false)
-  const [editForm, setEditForm] = useState({})
-  const [imgPreview, setImgPreview] = useState(null) // blob URL para previsualizar nueva foto
+  const [editing,      setEditing]     = useState(false)
+  const [editForm,     setEditForm]    = useState({})
+  const [imgPreview,   setImgPreview]  = useState(null)
+  const [showMediaMenu, setShowMediaMenu] = useState(false) // menú galería/cámara en móvil
 
-  const overlayRef  = useRef(null)
-  const imgRef      = useRef(null)
-  const contentRef  = useRef(null)
-  const metaRef     = useRef(null)
-  const fileInputRef = useRef(null)
+  const overlayRef    = useRef(null)
+  const imgRef        = useRef(null)
+  const contentRef    = useRef(null)
+  const metaRef       = useRef(null)
+  const fileInputRef  = useRef(null)   // sin capture → galería de fotos
+  const cameraInputRef = useRef(null)  // capture="environment" → cámara
 
   // ── Animación de apertura ───────────────────────────────────
   useEffect(() => {
@@ -68,16 +70,24 @@ export default function PhotoDetail() {
   const handlePhotoSelect = useCallback((e) => {
     const file = e.target.files?.[0]
     if (!file || !file.type.startsWith('image/')) return
-    // Preview local inmediato
+    e.target.value = '' // reset para poder re-seleccionar el mismo archivo
     const blob = URL.createObjectURL(file)
     setImgPreview(blob)
-    // Guardar el file en el form para subirlo al guardar
     setEditForm(f => ({ ...f, _pendingFile: file }))
-    // Animar la transición de imagen
     gsap.fromTo(imgRef.current,
       { opacity: 0, scale: 0.97, filter: 'blur(6px)' },
       { opacity: 1, scale: 1, filter: 'blur(0px)', duration: 0.55, ease: 'power2.out' }
     )
+  }, [])
+
+  // ── Abrir selector: en móvil muestra menú, en desktop abre picker ──
+  const handleChangePhotoClick = useCallback(() => {
+    const isMobile = navigator.maxTouchPoints > 0
+    if (isMobile) {
+      setShowMediaMenu(true)
+    } else {
+      fileInputRef.current?.click()
+    }
   }, [])
 
   // ── Guardar cambios ─────────────────────────────────────────
@@ -214,40 +224,81 @@ export default function PhotoDetail() {
           {/* Overlay de cambio de foto — visible solo en modo edición */}
           {editing && (
             <button
-              onClick={() => fileInputRef.current?.click()}
-              className="absolute inset-0 flex flex-col items-center justify-center gap-3 transition-opacity"
-              style={{ backgroundColor: 'rgba(0,0,0,0.52)' }}
-              onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'rgba(0,0,0,0.68)')}
-              onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'rgba(0,0,0,0.52)')}
+              onClick={handleChangePhotoClick}
+              className="absolute inset-0 flex flex-col items-center justify-center gap-3 transition-all"
+              style={{ backgroundColor: 'rgba(0,0,0,0.50)' }}
+              onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'rgba(0,0,0,0.66)')}
+              onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'rgba(0,0,0,0.50)')}
             >
-              {/* Icono cámara SVG */}
-              <svg
-                width="32" height="32" viewBox="0 0 24 24" fill="none"
-                stroke="rgba(255,255,255,0.85)" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"
+              <svg width="30" height="30" viewBox="0 0 24 24" fill="none"
+                stroke="rgba(255,255,255,0.82)" strokeWidth="1.2"
+                strokeLinecap="round" strokeLinejoin="round"
               >
                 <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
                 <circle cx="12" cy="13" r="4"/>
               </svg>
-              <span className="text-meta" style={{ color: 'rgba(255,255,255,0.7)', letterSpacing: '0.22em' }}>
-                Cambiar foto
+              <span className="text-meta" style={{ color: 'rgba(255,255,255,0.68)', letterSpacing: '0.22em' }}>
+                {imgPreview ? 'Cambiar selección' : 'Cambiar foto'}
               </span>
-              {imgPreview && (
-                <span className="text-meta" style={{ color: 'rgba(255,255,255,0.4)' }}>
-                  Nueva imagen seleccionada
-                </span>
-              )}
             </button>
           )}
 
-          {/* Input file oculto — acepta cualquier imagen, activa la cámara en móvil */}
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            className="hidden"
-            onChange={handlePhotoSelect}
-          />
+          {/* Input galería — sin capture */}
+          <input ref={fileInputRef} type="file" accept="image/*"
+            className="hidden" onChange={handlePhotoSelect} />
+          {/* Input cámara — capture trasero */}
+          <input ref={cameraInputRef} type="file" accept="image/*"
+            capture="environment" className="hidden" onChange={handlePhotoSelect} />
+
+          {/* Menú de selección en móvil */}
+          {showMediaMenu && (
+            <div
+              className="fixed inset-0 z-[80] flex items-end"
+              style={{ backgroundColor: 'rgba(0,0,0,0.6)' }}
+              onClick={() => setShowMediaMenu(false)}
+            >
+              <div
+                className="w-full bg-surface pb-8"
+                onClick={e => e.stopPropagation()}
+              >
+                {[
+                  {
+                    label: 'Cámara',
+                    sub:   'Hacer foto ahora',
+                    action: () => { setShowMediaMenu(false); cameraInputRef.current?.click() },
+                  },
+                  {
+                    label: 'Galería',
+                    sub:   'Elegir de la biblioteca',
+                    action: () => { setShowMediaMenu(false); fileInputRef.current?.click() },
+                  },
+                ].map(opt => (
+                  <button
+                    key={opt.label}
+                    onClick={opt.action}
+                    className="w-full flex flex-col items-start px-8 py-4 transition-opacity"
+                    style={{ borderBottom: '1px solid var(--c-ink-faint)' }}
+                    onMouseEnter={e => (e.currentTarget.style.opacity = '0.6')}
+                    onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
+                  >
+                    <span className="font-medium text-ink" style={{ fontSize: '1rem' }}>
+                      {opt.label}
+                    </span>
+                    <span className="text-meta mt-0.5" style={{ color: 'var(--c-ink-dim)' }}>
+                      {opt.sub}
+                    </span>
+                  </button>
+                ))}
+                <button
+                  onClick={() => setShowMediaMenu(false)}
+                  className="w-full px-8 py-4 text-meta text-left transition-opacity hover:opacity-50"
+                  style={{ color: 'var(--c-ink-dim)' }}
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Columna metadatos */}
