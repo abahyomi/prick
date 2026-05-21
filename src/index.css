@@ -2,27 +2,23 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ─── Color tokens ─────────────────────────────────────────── */
+/* ─── Color tokens ─────────────────────────────────────── */
 :root {
-  --c-surface: #ffffff;
-  --c-ink:     #000000;
-  --shadow-close: 0 28px 80px rgba(0, 0, 0, 0.32);
-  --shadow-mid:   0 14px 44px rgba(0, 0, 0, 0.16);
+  --c-surface:        #ffffff;
+  --c-ink:            #000000;
+  --shadow-float:     0 6px 28px rgba(0, 0, 0, 0.10);
+  --shadow-float-up:  0 16px 52px rgba(0, 0, 0, 0.20);
 }
 
 html.dark {
-  --c-surface: #000000;
-  --c-ink:     #ffffff;
-  --shadow-close: 0 28px 80px rgba(255, 255, 255, 0.08);
-  --shadow-mid:   0 14px 44px rgba(255, 255, 255, 0.04);
+  --c-surface:        #0a0a0a;
+  --c-ink:            #f0f0f0;
+  --shadow-float:     0 6px 28px rgba(255, 255, 255, 0.04);
+  --shadow-float-up:  0 16px 52px rgba(255, 255, 255, 0.07);
 }
 
 @layer base {
-  * {
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
-  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
 
   html {
     scroll-behavior: smooth;
@@ -35,29 +31,15 @@ html.dark {
     color: var(--c-ink);
     font-family: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
     overflow-x: hidden;
-    transition: background-color 0.3s ease, color 0.3s ease;
+    transition: background-color 0.35s ease, color 0.35s ease;
   }
 
-  ::selection {
-    background: var(--c-ink);
-    color: var(--c-surface);
-  }
-
-  img {
-    display: block;
-    max-width: 100%;
-  }
-
-  button {
-    cursor: pointer;
-  }
+  ::selection { background: var(--c-ink); color: var(--c-surface); }
+  img { display: block; max-width: 100%; }
+  button { cursor: pointer; }
 }
 
 @layer utilities {
-  .clip-hidden {
-    overflow: hidden;
-  }
-
   .text-meta {
     font-size: 0.625rem;
     letter-spacing: 0.2em;
@@ -65,23 +47,16 @@ html.dark {
     font-weight: 500;
   }
 
-  /* Hide scrollbar */
   .no-scrollbar::-webkit-scrollbar { display: none; }
-  .no-scrollbar {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
-  }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-  /* Dark mode toggle icon */
-  .theme-icon::before {
-    content: '◐';
-  }
-  html.dark .theme-icon::before {
-    content: '◑';
-  }
+  .theme-icon::before        { content: '◐'; }
+  html.dark .theme-icon::before { content: '◑'; }
 }
 
-.gsap-hidden {
-  opacity: 0;
-  visibility: hidden;
+/* View fade-in when switching grid ↔ list */
+@keyframes viewFade {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
+.view-enter { animation: viewFade 0.35s ease forwards; }

@@ -1,87 +1,75 @@
-import React, { useEffect, useRef } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { gsap } from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { usePhotos } from '../context/PhotoContext'
 
 gsap.registerPlugin(ScrollTrigger)
 
-// Each slot: column span, aspect ratio, and depth level (0=far, 1=mid, 2=close)
-const SLOT_PATTERNS = [
-  { col: 'col-span-7', aspect: 'aspect-[4/5]',   depth: 2 }, // Large portrait  — close
-  { col: 'col-span-5', aspect: 'aspect-square',   depth: 0 }, // Square          — far
-  { col: 'col-span-4', aspect: 'aspect-[3/4]',    depth: 1 }, // Small portrait  — mid
-  { col: 'col-span-8', aspect: 'aspect-[16/9]',   depth: 0 }, // Wide landscape  — far
-  { col: 'col-span-5', aspect: 'aspect-[4/3]',    depth: 2 }, // Medium land.    — close
-  { col: 'col-span-7', aspect: 'aspect-[3/2]',    depth: 1 }, // Wide            — mid
-  { col: 'col-span-5', aspect: 'aspect-[4/5]',    depth: 0 }, // Medium portrait — far
+// ─── Depth system (3 Z-layers) ─────────────────────────────
+const DEPTH_SEQ = [2, 0, 1, 0, 2, 1, 0, 2, 0, 1] // cycles per index
+const DEPTHS = [
+  { parallaxY: -10, scale: 0.965, shadow: 'none' },                  // far
+  { parallaxY: -26, scale: 1.000, shadow: 'var(--shadow-float)' },    // mid
+  { parallaxY: -44, scale: 1.030, shadow: 'var(--shadow-float-up)' }, // close
 ]
+const ASPECTS = ['aspect-[3/4]', 'aspect-square', 'aspect-[4/5]', 'aspect-square', 'aspect-[3/4]']
 
-// Depth config — simulates Z-axis via scale, shadow and parallax scroll speed
-const DEPTH_CONFIG = [
-  // far (0): subtle, recedes, slow scroll
-  { scale: 0.975, parallaxY: -30,  shadow: 'none' },
-  // mid (1): neutral depth
-  { scale: 1.0,   parallaxY: -65,  shadow: 'var(--shadow-mid)' },
-  // close (2): pops forward, fast scroll
-  { scale: 1.03,  parallaxY: -110, shadow: 'var(--shadow-close)' },
-]
+// ─── Grid card ──────────────────────────────────────────────
+function GridCard({ photo, index, onClick }) {
+  const wrapRef    = useRef(null) // parallax target
+  const cardRef    = useRef(null) // reveal target
+  const imgRef     = useRef(null)
+  const overlayRef = useRef(null)
 
-function PhotoCard({ photo, index, onClick }) {
-  const parallaxRef = useRef(null) // outer: receives scroll parallax
-  const cardRef     = useRef(null) // inner: receives reveal animation
-  const imgRef      = useRef(null)
-  const overlayRef  = useRef(null)
+  const depth  = DEPTHS[DEPTH_SEQ[index % DEPTH_SEQ.length]]
+  const aspect = ASPECTS[index % ASPECTS.length]
 
-  const slot  = SLOT_PATTERNS[index % SLOT_PATTERNS.length]
-  const depth = DEPTH_CONFIG[slot.depth]
-
-  // Scroll reveal (on inner card)
   useEffect(() => {
-    gsap.fromTo(
-      cardRef.current,
-      { opacity: 0, y: 50 },
+    // Entrance: subtle lift-in, staggered by column position
+    gsap.fromTo(cardRef.current,
+      { opacity: 0, y: 20 },
       {
         opacity: 1,
         y: 0,
-        duration: 0.9,
-        ease: 'power3.out',
-        delay: (index % 3) * 0.07,
+        duration: 0.7,
+        ease: 'power2.out',
+        delay: (index % 5) * 0.06,
         scrollTrigger: {
-          trigger: parallaxRef.current,
-          start: 'top 92%',
+          trigger: wrapRef.current,
+          start: 'top 96%',
           toggleActions: 'play none none none',
         },
       }
     )
 
-    // Parallax scroll — different speed per depth layer (on outer wrapper)
-    gsap.to(parallaxRef.current, {
+    // Per-layer parallax scroll
+    gsap.to(wrapRef.current, {
       y: depth.parallaxY,
       ease: 'none',
       scrollTrigger: {
-        trigger: parallaxRef.current,
+        trigger: wrapRef.current,
         start: 'top bottom',
         end: 'bottom top',
-        scrub: 1.8,
+        scrub: 2.2,
       },
+    })
+
+    return () => ScrollTrigger.getAll().forEach((t) => {
+      if (t.trigger === wrapRef.current) t.kill()
     })
   }, [index, depth.parallaxY])
 
-  function handleMouseEnter() {
-    gsap.to(imgRef.current, { scale: 1.04, duration: 0.55, ease: 'power2.out' })
-    gsap.to(overlayRef.current, { opacity: 1, duration: 0.3 })
+  function handleEnter() {
+    gsap.to(imgRef.current,     { scale: 1.06, duration: 0.55, ease: 'power2.out' })
+    gsap.to(overlayRef.current, { opacity: 1,  duration: 0.28 })
   }
-  function handleMouseLeave() {
-    gsap.to(imgRef.current, { scale: 1, duration: 0.55, ease: 'power2.inOut' })
-    gsap.to(overlayRef.current, { opacity: 0, duration: 0.3 })
+  function handleLeave() {
+    gsap.to(imgRef.current,     { scale: 1,   duration: 0.55, ease: 'power2.inOut' })
+    gsap.to(overlayRef.current, { opacity: 0, duration: 0.28 })
   }
-
-  const formatted = new Date(photo.date).toLocaleDateString('en-GB', {
-    day: '2-digit', month: 'short', year: 'numeric',
-  })
 
   return (
-    <div ref={parallaxRef} className={`${slot.col}`} style={{ willChange: 'transform' }}>
+    <div ref={wrapRef} style={{ willChange: 'transform' }}>
       <div
         ref={cardRef}
         className="cursor-pointer"
@@ -92,11 +80,11 @@ function PhotoCard({ photo, index, onClick }) {
           boxShadow: depth.shadow,
         }}
         onClick={() => onClick(photo)}
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={handleMouseLeave}
+        onMouseEnter={handleEnter}
+        onMouseLeave={handleLeave}
       >
-        {/* Image container */}
-        <div className={`relative overflow-hidden ${slot.aspect} border border-ink`}>
+        {/* Photo — no border */}
+        <div className={`relative overflow-hidden ${aspect}`}>
           <img
             ref={imgRef}
             src={photo.thumb || photo.url}
@@ -106,68 +94,182 @@ function PhotoCard({ photo, index, onClick }) {
             style={{ willChange: 'transform' }}
           />
 
-          {/* Hover overlay */}
+          {/* Overlay — hardcoded black so it never goes white in dark mode */}
           <div
             ref={overlayRef}
-            className="absolute inset-0 bg-ink flex flex-col justify-end p-4 opacity-0"
-            style={{ willChange: 'opacity' }}
+            className="absolute inset-0 flex flex-col justify-end p-3 opacity-0"
+            style={{ willChange: 'opacity', backgroundColor: 'rgba(0,0,0,0.82)' }}
           >
-            <p className="text-surface font-light text-sm leading-snug line-clamp-3">
+            <p className="font-light text-xs leading-snug line-clamp-3" style={{ color: '#fff' }}>
               {photo.description}
             </p>
-            <p className="text-meta text-surface mt-3 opacity-60">{photo.author}</p>
+            <p className="text-meta mt-2 opacity-60" style={{ color: '#fff' }}>{photo.author}</p>
           </div>
         </div>
 
         {/* Caption */}
-        <div className="flex items-baseline justify-between pt-2 pb-1">
-          <span className="text-meta opacity-50">{photo.location}</span>
-          <span className="text-meta opacity-50">{formatted}</span>
+        <div className="flex items-baseline justify-between pt-2">
+          <span className="text-meta opacity-40">{photo.location}</span>
+          <span className="text-meta opacity-25">
+            {new Date(photo.date).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })}
+          </span>
         </div>
       </div>
     </div>
   )
 }
 
-export default function Gallery() {
-  const { photos, setSelectedPhoto, setUploadModalOpen } = usePhotos()
+// ─── List row ───────────────────────────────────────────────
+function ListRow({ photo, index, onClick }) {
+  const rowRef = useRef(null)
+  const imgRef = useRef(null)
 
   useEffect(() => {
-    ScrollTrigger.refresh()
-  }, [photos.length])
+    gsap.fromTo(rowRef.current,
+      { opacity: 0, x: -28 },
+      {
+        opacity: 1,
+        x: 0,
+        duration: 0.65,
+        ease: 'power2.out',
+        delay: (index % 4) * 0.07,
+        scrollTrigger: {
+          trigger: rowRef.current,
+          start: 'top 95%',
+          toggleActions: 'play none none none',
+        },
+      }
+    )
+
+    return () => ScrollTrigger.getAll().forEach((t) => {
+      if (t.trigger === rowRef.current) t.kill()
+    })
+  }, [index])
+
+  function handleEnter() { gsap.to(imgRef.current, { scale: 1.04, duration: 0.5, ease: 'power2.out' }) }
+  function handleLeave() { gsap.to(imgRef.current, { scale: 1,    duration: 0.5, ease: 'power2.inOut' }) }
+
+  const formatted = new Date(photo.date).toLocaleDateString('en-GB', {
+    weekday: 'long', day: '2-digit', month: 'long', year: 'numeric',
+  })
+
+  return (
+    <div
+      ref={rowRef}
+      className="flex gap-8 md:gap-14 cursor-pointer py-10"
+      style={{ opacity: 0 }}
+      onClick={() => onClick(photo)}
+      onMouseEnter={handleEnter}
+      onMouseLeave={handleLeave}
+    >
+      {/* Photo */}
+      <div className="w-36 md:w-56 lg:w-72 flex-shrink-0 overflow-hidden aspect-[3/4]">
+        <img
+          ref={imgRef}
+          src={photo.thumb || photo.url}
+          alt={photo.description}
+          loading="lazy"
+          className="w-full h-full object-cover grayscale"
+          style={{ willChange: 'transform' }}
+        />
+      </div>
+
+      {/* Metadata */}
+      <div className="flex flex-col justify-between py-1 min-w-0">
+        <div>
+          <p className="text-meta opacity-30 mb-3">{formatted}</p>
+          <h3
+            className="font-black leading-none text-ink"
+            style={{ fontSize: 'clamp(1.4rem, 3.5vw, 3.2rem)', letterSpacing: '-0.03em' }}
+          >
+            {photo.location}
+          </h3>
+          <p className="font-light text-sm leading-relaxed mt-4 opacity-60 max-w-xl">
+            {photo.description}
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-4 mt-5">
+          {photo.camera   && <span className="text-meta opacity-25">{photo.camera}</span>}
+          {photo.iso      && <span className="text-meta opacity-25">ISO {photo.iso}</span>}
+          {photo.aperture && <span className="text-meta opacity-25">{photo.aperture}</span>}
+          {photo.shutter  && <span className="text-meta opacity-25">{photo.shutter}</span>}
+          {photo.author   && <span className="text-meta opacity-25">{photo.author}</span>}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Gallery ────────────────────────────────────────────────
+export default function Gallery() {
+  const { photos, setSelectedPhoto, setUploadModalOpen } = usePhotos()
+  const [view, setView] = useState('grid')
+
+  useEffect(() => {
+    // Small delay so new DOM is laid out before ScrollTrigger measures
+    const id = setTimeout(() => ScrollTrigger.refresh(), 100)
+    return () => clearTimeout(id)
+  }, [photos.length, view])
 
   if (photos.length === 0) {
     return (
-      <section className="px-6 py-24 text-center">
-        <p className="text-meta opacity-40 mb-6">No frames yet.</p>
+      <section className="px-8 py-32 flex flex-col items-center gap-6">
+        <p className="text-meta opacity-25">No frames yet.</p>
         <button
           onClick={() => setUploadModalOpen(true)}
-          className="text-meta border border-ink px-6 py-3 hover:bg-ink hover:text-surface transition-colors duration-200"
+          className="text-meta opacity-50 hover:opacity-100 transition-opacity"
         >
-          Add the first frame
+          + Add the first frame
         </button>
       </section>
     )
   }
 
   return (
-    <section className="px-6 py-10 overflow-visible">
-      {/* Section label */}
-      <div className="flex items-center justify-between mb-8 pb-4 border-b border-ink">
-        <span className="text-meta opacity-50">Archive</span>
-        <span className="text-meta opacity-50">{photos.length.toString().padStart(3, '0')}</span>
+    <section className="overflow-visible">
+      {/* Toolbar — no lines */}
+      <div className="flex items-center justify-between px-8 pt-8 pb-8">
+        <span className="text-meta opacity-25">{photos.length.toString().padStart(3, '0')}&nbsp;frames</span>
+        <div className="flex gap-6">
+          {['grid', 'list'].map((m) => (
+            <button
+              key={m}
+              onClick={() => setView(m)}
+              className={`text-meta capitalize transition-opacity ${
+                view === m ? 'opacity-100' : 'opacity-25 hover:opacity-60'
+              }`}
+            >
+              {m}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {/* 12-col asymmetric grid with 3D depth illusion */}
-      <div className="grid grid-cols-12 gap-4 md:gap-8 overflow-visible">
-        {photos.map((photo, i) => (
-          <PhotoCard key={photo.id} photo={photo} index={i} onClick={setSelectedPhoto} />
-        ))}
-      </div>
+      {/* Grid view — 5-col, floating, ~10 per fold */}
+      {view === 'grid' && (
+        <div
+          key="grid"
+          className="view-enter grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-x-8 gap-y-16 px-8 overflow-visible pb-24"
+        >
+          {photos.map((photo, i) => (
+            <GridCard key={photo.id} photo={photo} index={i} onClick={setSelectedPhoto} />
+          ))}
+        </div>
+      )}
 
-      <div className="mt-24 pt-4 border-t border-ink flex justify-between">
-        <span className="text-meta opacity-30">PRICK / Vol. I</span>
-        <span className="text-meta opacity-30">Abahyomi &amp; Alexandra</span>
+      {/* List view — spacious editorial rows */}
+      {view === 'list' && (
+        <div key="list" className="view-enter px-8 pb-24">
+          {photos.map((photo, i) => (
+            <ListRow key={photo.id} photo={photo} index={i} onClick={setSelectedPhoto} />
+          ))}
+        </div>
+      )}
+
+      {/* Footer text — no lines */}
+      <div className="flex justify-between px-8 py-10">
+        <span className="text-meta opacity-15">PRICK</span>
+        <span className="text-meta opacity-15">Abahyomi &amp; Alexandra</span>
       </div>
     </section>
   )

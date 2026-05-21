@@ -84,12 +84,12 @@ export default function UploadModal() {
     >
       <div
         ref={panelRef}
-        className="bg-surface w-full md:max-w-3xl max-h-[95vh] overflow-y-auto no-scrollbar border-t md:border border-ink"
+        className="bg-surface w-full md:max-w-3xl max-h-[95vh] overflow-y-auto no-scrollbar"
         style={{ opacity: 0 }}
       >
         {/* Modal header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-ink sticky top-0 bg-surface z-10">
-          <span className="text-meta text-ink">New Frame</span>
+        <div className="flex items-center justify-between px-6 py-4 sticky top-0 bg-surface z-10">
+          <span className="text-meta text-ink opacity-50">New Frame</span>
           <button onClick={close} className="text-meta text-ink hover:opacity-50 transition-opacity" aria-label="Close">
             ✕
           </button>
@@ -167,7 +167,7 @@ export default function UploadModal() {
 
           {error && <p className="text-meta text-red-500">{error}</p>}
 
-          <div className="flex items-center justify-between pt-4 border-t border-ink">
+          <div className="flex items-center justify-between pt-6">
             <button type="button" onClick={close} className="text-meta text-ink hover:opacity-50 transition-opacity">
               Cancel
             </button>
@@ -186,7 +186,7 @@ export default function UploadModal() {
 }
 
 const inputClass =
-  'w-full border border-ink px-3 py-2 text-sm font-light text-ink bg-surface focus:outline-none focus:bg-ink focus:text-surface transition-colors duration-150'
+  'w-full border-b border-ink/20 px-0 py-2 text-sm font-light text-ink bg-transparent focus:outline-none focus:border-ink/60 transition-colors duration-150'
 
 function Field({ label, children, required }) {
   return (

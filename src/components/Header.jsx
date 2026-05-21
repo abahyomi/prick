@@ -6,79 +6,63 @@ export default function Header({ ready, dark, onToggleDark }) {
   const { setUploadModalOpen, photos } = usePhotos()
   const titleRef = useRef(null)
   const metaRef  = useRef(null)
-  const lineRef  = useRef(null)
   const navRef   = useRef(null)
 
-  // Only animate after Loader completes
   useEffect(() => {
     if (!ready) return
 
     const tl = gsap.timeline({ defaults: { ease: 'power3.out' } })
 
-    tl.fromTo(
-      titleRef.current,
-      { yPercent: 110, opacity: 0 },
-      { yPercent: 0, opacity: 1, duration: 1.1 }
-    )
-      .fromTo(
-        lineRef.current,
-        { scaleX: 0, transformOrigin: 'left center' },
-        { scaleX: 1, duration: 0.7 },
-        '-=0.3'
+    tl.fromTo(navRef.current,
+        { opacity: 0, y: -8 },
+        { opacity: 1, y: 0, duration: 0.5 }
       )
-      .fromTo(
-        metaRef.current,
-        { opacity: 0, y: 8 },
+      .fromTo(titleRef.current,
+        { yPercent: 110, opacity: 0 },
+        { yPercent: 0, opacity: 1, duration: 1.05 },
+        '-=0.1'
+      )
+      .fromTo(metaRef.current,
+        { opacity: 0, y: 10 },
         { opacity: 1, y: 0, duration: 0.6 },
-        '-=0.2'
-      )
-      .fromTo(
-        navRef.current,
-        { opacity: 0, y: 6 },
-        { opacity: 1, y: 0, duration: 0.5 },
-        '-=0.4'
+        '-=0.3'
       )
   }, [ready])
 
   return (
-    <header className="w-full border-b border-ink">
-      {/* Top nav strip */}
+    <header className="w-full">
+      {/* Nav strip — no border */}
       <div
         ref={navRef}
-        className="flex items-center justify-between px-6 pt-5 pb-3"
+        className="flex items-center justify-between px-8 pt-6 pb-2"
         style={{ opacity: 0 }}
       >
-        <span className="text-meta text-ink">
+        <span className="text-meta opacity-30">
           Vol. I &nbsp;—&nbsp; {new Date().getFullYear()}
         </span>
 
-        <div className="flex items-center gap-5">
-          <span className="text-meta text-ink">{photos.length} frames</span>
+        <div className="flex items-center gap-6">
+          <span className="text-meta opacity-30">{photos.length} frames</span>
 
-          {/* Dark mode toggle */}
           <button
             onClick={onToggleDark}
             aria-label="Toggle dark mode"
-            className="text-meta text-ink hover:opacity-50 transition-opacity select-none"
-            title={dark ? 'Switch to light' : 'Switch to dark'}
+            className="text-meta opacity-50 hover:opacity-100 transition-opacity select-none"
           >
             <span className="theme-icon" />
           </button>
 
           <button
             onClick={() => setUploadModalOpen(true)}
-            className="text-meta bg-ink text-surface px-4 py-2 hover:bg-surface hover:text-ink border border-ink transition-colors duration-200"
+            className="text-meta bg-ink text-surface px-4 py-2 hover:opacity-70 transition-opacity"
           >
             + Add
           </button>
         </div>
       </div>
 
-      {/* Divider */}
-      <div ref={lineRef} className="h-px w-full bg-ink" style={{ scaleX: 0 }} />
-
-      {/* Main title */}
-      <div className="px-6 pt-8 pb-6 overflow-hidden">
+      {/* Massive title */}
+      <div className="px-8 pt-6 pb-4 overflow-hidden">
         <h1
           ref={titleRef}
           className="font-black leading-none select-none text-ink"
@@ -92,22 +76,22 @@ export default function Header({ ready, dark, onToggleDark }) {
         </h1>
       </div>
 
-      {/* Meta subtitle */}
+      {/* Subtitle */}
       <div
         ref={metaRef}
-        className="flex flex-wrap items-end justify-between gap-4 px-6 pb-6"
+        className="flex flex-wrap items-end justify-between gap-4 px-8 pb-8"
         style={{ opacity: 0 }}
       >
         <div>
           <p
             className="font-black uppercase leading-tight text-ink"
-            style={{ fontSize: 'clamp(0.9rem, 2.5vw, 1.5rem)', letterSpacing: '0.15em' }}
+            style={{ fontSize: 'clamp(0.9rem, 2.5vw, 1.4rem)', letterSpacing: '0.15em' }}
           >
             Abahyomi &amp; Alexandra
           </p>
-          <p className="text-meta mt-1 opacity-60">A Visual Diary &mdash; Ongoing</p>
+          <p className="text-meta mt-1 opacity-40">A Visual Diary &mdash; Ongoing</p>
         </div>
-        <p className="text-meta text-right opacity-60 max-w-xs">
+        <p className="text-meta text-right opacity-30 max-w-xs">
           Memory rendered as image.
           <br />
           Every frame is a fact.

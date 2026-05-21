@@ -63,7 +63,7 @@ export default function PhotoDetail() {
       style={{ opacity: 0 }}
     >
       {/* Controls bar */}
-      <div className="sticky top-0 z-10 bg-surface border-b border-ink flex items-center justify-between px-6 py-4">
+      <div className="sticky top-0 z-10 bg-surface flex items-center justify-between px-6 py-4">
         <button onClick={close} className="text-meta text-ink hover:opacity-40 transition-opacity flex items-center gap-2">
           <span style={{ fontSize: '1rem', lineHeight: 1 }}>←</span>
           <span>Back</span>
@@ -100,7 +100,7 @@ export default function PhotoDetail() {
       {/* Image + text layout */}
       <div className="grid grid-cols-1 md:grid-cols-12 min-h-[calc(100vh-60px)]">
         {/* Image column */}
-        <div className="md:col-span-7 border-b md:border-b-0 md:border-r border-ink flex items-center justify-center bg-ink">
+        <div className="md:col-span-7 flex items-center justify-center bg-ink">
           <img
             ref={imgRef}
             src={selectedPhoto.url}
@@ -145,7 +145,7 @@ export default function PhotoDetail() {
               <p className="text-meta opacity-40 mb-3">Technical</p>
               <div>
                 {[['Camera','camera'],['ISO','iso'],['Aperture','aperture'],['Shutter','shutter'],['Author','author']].map(([label, key]) => (
-                  <div key={key} className="flex justify-between items-baseline py-2 border-b border-ink/10">
+                  <div key={key} className="flex justify-between items-baseline py-2">
                     <span className="text-meta opacity-40">{label}</span>
                     {editing ? (
                       key === 'author' ? (
@@ -166,7 +166,7 @@ export default function PhotoDetail() {
             </div>
           </div>
 
-          <div className="mt-10 pt-4 border-t border-ink">
+          <div className="mt-10 pt-4">
             <p className="text-meta opacity-30">PRICK / Visual Archive</p>
           </div>
         </div>
@@ -176,4 +176,4 @@ export default function PhotoDetail() {
 }
 
 const editInputClass =
-  'w-full border-b border-ink focus:outline-none bg-transparent text-ink text-sm font-light py-1'
+  'w-full border-b border-ink/20 focus:border-ink/60 focus:outline-none bg-transparent text-ink text-sm font-light py-1 transition-colors'
