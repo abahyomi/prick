@@ -16,7 +16,7 @@ function haversine(lat1, lng1, lat2, lng2) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
 }
 
-// ── Agrupa fotos por proximidad ────────────────────────────
+// ── Agrupa fotos por proximidad (radio 40 km) ──────────────
 function buildClusters(photos, radiusKm = 40) {
   const clusters = []
   photos.forEach(photo => {
@@ -45,114 +45,145 @@ function buildClusters(photos, radiusKm = 40) {
   })
 }
 
-// ── Panel de fotos del cluster ─────────────────────────────
+// ── HTML del marcador (Swiss) ──────────────────────────────
+function markerHtml(count, active) {
+  const bg  = active ? 'var(--c-ink)'     : 'var(--c-surface)'
+  const fg  = active ? 'var(--c-surface)' : 'var(--c-ink)'
+  const bdr = active ? 'none'             : '1px solid var(--c-ink)'
+  return `<div style="
+    width:52px;height:52px;background:${bg};color:${fg};border:${bdr};
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    font-family:Inter,sans-serif;cursor:pointer;
+    box-shadow:0 4px 20px rgba(0,0,0,0.35);
+    transform:${active ? 'scale(1.12)' : 'scale(1)'};transition:transform 0.15s">
+    <span style="font-size:1.1rem;font-weight:400;line-height:1">${count}</span>
+    <span style="font-size:0.48rem;letter-spacing:0.14em;text-transform:uppercase;opacity:0.55;margin-top:3px">fotos</span>
+  </div>`
+}
+
+// ── Panel inferior con fotos del cluster ───────────────────
 function PhotoPanel({ cluster, onClose, onPhotoClick }) {
   const ref = useRef(null)
 
   useEffect(() => {
     gsap.fromTo(ref.current,
-      { y: '100%', opacity: 0 },
-      { y: 0, opacity: 1, duration: 0.38, ease: 'power3.out' }
+      { y: 60, opacity: 0 },
+      { y: 0, opacity: 1, duration: 0.42, ease: 'power3.out' }
     )
   }, [cluster.id])
 
   function close() {
     gsap.to(ref.current, {
-      y: '100%', opacity: 0, duration: 0.28, ease: 'power2.in',
+      y: 60, opacity: 0, duration: 0.28, ease: 'power2.in',
       onComplete: onClose,
     })
   }
 
+  const fecha = (d) => new Date(d).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: '2-digit' })
+
   return (
     <div
       ref={ref}
-      className="absolute bottom-0 left-0 right-0 z-[1000] bg-surface no-scrollbar"
-      style={{ maxHeight: '62vh', overflowY: 'auto', borderTop: '1px solid var(--c-ink-faint)', transform: 'translateY(100%)', willChange: 'transform' }}
+      className="no-scrollbar bg-surface"
+      style={{
+        position:    'absolute',
+        bottom:      0, left: 0, right: 0,
+        zIndex:      2000,           // encima de Leaflet (z ≤ 1000)
+        maxHeight:   '65vh',
+        overflowY:   'auto',
+        borderTop:   '1px solid var(--c-ink-faint)',
+        willChange:  'transform, opacity',
+      }}
     >
-      {/* Cabecera */}
-      <div className="flex items-center justify-between px-6 py-4 sticky top-0 bg-surface z-10" style={{ borderBottom: '1px solid var(--c-ink-faint)' }}>
+      {/* Cabecera sticky */}
+      <div
+        className="flex items-center justify-between px-6 py-4 bg-surface sticky top-0"
+        style={{ zIndex: 10, borderBottom: '1px solid var(--c-ink-faint)' }}
+      >
         <div>
-          <h2 className="font-semibold leading-none text-ink" style={{ fontSize: 'clamp(1.1rem, 2.5vw, 1.8rem)', letterSpacing: '-0.02em' }}>
+          <h2
+            className="font-semibold text-ink leading-none"
+            style={{ fontSize: 'clamp(1.1rem, 3vw, 1.9rem)', letterSpacing: '-0.02em' }}
+          >
             {cluster.label}
           </h2>
           <p className="text-meta mt-1" style={{ color: 'var(--c-ink-dim)' }}>
             {cluster.photos.length} {cluster.photos.length === 1 ? 'fotograma' : 'fotogramas'}
           </p>
         </div>
-        <button onClick={close} className="text-meta hover:opacity-50 transition-opacity" style={{ color: 'var(--c-ink-dim)' }}>✕</button>
+        <button
+          onClick={close}
+          className="text-meta transition-opacity hover:opacity-40"
+          style={{ color: 'var(--c-ink-dim)', fontSize: '1rem', padding: '0.5rem' }}
+        >
+          ✕
+        </button>
       </div>
 
-      {/* Grid miniaturas */}
-      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-px p-px">
+      {/* Grid de miniaturas */}
+      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 p-1" style={{ gap: '2px' }}>
         {cluster.photos.map(photo => (
           <button
             key={photo.id}
-            className="aspect-[4/5] overflow-hidden relative group"
+            className="aspect-[4/5] overflow-hidden relative group block"
             onClick={() => onPhotoClick(photo)}
+            title={photo.location}
           >
             <img
               src={photo.thumb || photo.url}
               alt={photo.location}
+              loading="lazy"
               className="w-full h-full object-cover grayscale transition-transform duration-500 group-hover:scale-105"
             />
+            {/* Overlay con fecha + lugar */}
             <div
               className="absolute inset-0 flex flex-col justify-end p-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
-              style={{ backgroundColor: 'rgba(0,0,0,0.72)' }}
+              style={{ backgroundColor: 'rgba(0,0,0,0.76)' }}
             >
-              <p className="text-meta" style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.55rem' }}>
-                {new Date(photo.date).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })}
+              <p style={{ color: '#fff', fontSize: '0.62rem', fontWeight: 500, letterSpacing: '0.05em', lineHeight: 1.3 }}>
+                {photo.location?.split(',')[0]}
+              </p>
+              <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: '0.55rem', marginTop: 2 }}>
+                {fecha(photo.date)}
               </p>
             </div>
           </button>
         ))}
       </div>
-      <div className="h-6" />
+      <div className="h-8" />
     </div>
   )
 }
 
-// ── HTML del marcador Swiss ────────────────────────────────
-function markerHtml(count, active) {
-  const bg  = active ? 'var(--c-ink)'    : 'var(--c-surface)'
-  const fg  = active ? 'var(--c-surface)' : 'var(--c-ink)'
-  const bdr = active ? 'none' : '1px solid var(--c-ink)'
-  return `<div style="
-    width:48px;height:48px;
-    background:${bg};color:${fg};border:${bdr};
-    display:flex;flex-direction:column;align-items:center;justify-content:center;
-    font-family:'Inter',sans-serif;cursor:pointer;
-    transition:transform 0.15s;transform:${active ? 'scale(1.15)' : 'scale(1)'}">
-    <span style="font-size:1rem;font-weight:400;line-height:1.1">${count}</span>
-    <span style="font-size:0.5rem;letter-spacing:0.15em;text-transform:uppercase;opacity:0.6;margin-top:1px">fotos</span>
-  </div>`
-}
-
-// ── Mapa principal (Leaflet puro sin react-leaflet) ────────
+// ── Vista principal ────────────────────────────────────────
 export default function MapView() {
   const { photos, setSelectedPhoto } = usePhotos()
+
   const mapDivRef    = useRef(null)
-  const mapRef       = useRef(null)   // instancia L.Map
-  const markersRef   = useRef([])     // L.Marker[]
+  const mapRef       = useRef(null)
+  const fittedRef    = useRef(false)     // fitBounds solo una vez
   const containerRef = useRef(null)
+
+  // Estado que indica que el mapa ya está listo (dispara el effect de marcadores)
+  const [mapReady,      setMapReady]      = useState(false)
   const [activeCluster, setActiveCluster] = useState(null)
 
-  const isDark = !document.documentElement.classList.contains('light')
-
-  const clusters = useMemo(() => buildClusters(photos), [photos])
-
-  // Tiles según tema
-  const tileUrl = isDark
+  const isDark   = !document.documentElement.classList.contains('light')
+  const tileUrl  = isDark
     ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
     : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'
 
-  // ── Inicializar mapa ───────────────────────────────────
+  const clusters = useMemo(() => buildClusters(photos), [photos])
+
+  // ── 1. Inicializar Leaflet (solo una vez) ──────────────
   useEffect(() => {
-    if (!mapDivRef.current || mapRef.current) return
+    if (mapRef.current) return          // ya existe
+    if (!mapDivRef.current) return
 
     const map = L.map(mapDivRef.current, {
-      center:         [36, -8],
-      zoom:           5,
-      zoomControl:    false,
+      center:             [38, -8],
+      zoom:               5,
+      zoomControl:        false,
       attributionControl: true,
     })
 
@@ -163,93 +194,84 @@ export default function MapView() {
     }).addTo(map)
 
     mapRef.current = map
+    // Pequeño delay para que el DOM esté renderizado antes de invalidateSize
+    setTimeout(() => {
+      map.invalidateSize()
+      setMapReady(true)    // ← dispara el effect de marcadores
+    }, 120)
 
-    // Limpiar al desmontar
     return () => {
       map.remove()
-      mapRef.current   = null
-      markersRef.current = []
+      mapRef.current  = null
+      fittedRef.current = false
     }
   }, [])
 
-  // ── Sincronizar marcadores cuando cambian clusters ─────
+  // ── 2. Añadir/actualizar marcadores cuando el mapa está listo ──
   useEffect(() => {
+    if (!mapReady || !mapRef.current) return
     const map = mapRef.current
-    if (!map) return
 
-    // Limpiar marcadores anteriores
-    markersRef.current.forEach(m => m.remove())
-    markersRef.current = []
-
-    if (!clusters.length) return
+    // Quitar marcadores anteriores (no los TileLayers)
+    map.eachLayer(layer => { if (layer instanceof L.Marker) layer.remove() })
 
     clusters.forEach(cluster => {
+      const isActive = activeCluster?.id === cluster.id
+
       const icon = L.divIcon({
-        html:       markerHtml(cluster.photos.length, activeCluster?.id === cluster.id),
+        html:       markerHtml(cluster.photos.length, isActive),
         className:  '',
-        iconSize:   [48, 48],
-        iconAnchor: [24, 24],
+        iconSize:   [52, 52],
+        iconAnchor: [26, 26],
       })
 
-      const marker = L.marker([cluster.lat, cluster.lng], { icon })
+      L.marker([cluster.lat, cluster.lng], { icon })
         .addTo(map)
         .on('click', () => {
           setActiveCluster(prev => prev?.id === cluster.id ? null : cluster)
         })
-
-      markersRef.current.push(marker)
     })
 
-    // Ajustar bounds
-    if (clusters.length === 1) {
-      map.setView([clusters[0].lat, clusters[0].lng], 11)
-    } else {
-      const bounds = L.latLngBounds(clusters.map(c => [c.lat, c.lng]))
-      map.fitBounds(bounds, { padding: [80, 80] })
+    // fitBounds solo la primera vez (no mover el mapa en cada click)
+    if (!fittedRef.current && clusters.length) {
+      fittedRef.current = true
+      if (clusters.length === 1) {
+        map.setView([clusters[0].lat, clusters[0].lng], 11)
+      } else {
+        const bounds = L.latLngBounds(clusters.map(c => [c.lat, c.lng]))
+        map.fitBounds(bounds, { padding: [72, 72] })
+      }
     }
-  }, [clusters, activeCluster])
+  }, [mapReady, clusters, activeCluster])
 
-  // ── Actualizar iconos al cambiar cluster activo ────────
-  useEffect(() => {
-    markersRef.current.forEach((marker, i) => {
-      const cluster = clusters[i]
-      if (!cluster) return
-      marker.setIcon(L.divIcon({
-        html:       markerHtml(cluster.photos.length, activeCluster?.id === cluster.id),
-        className:  '',
-        iconSize:   [48, 48],
-        iconAnchor: [24, 24],
-      }))
-    })
-  }, [activeCluster, clusters])
-
-  // ── Forzar invalidateSize cuando se monta la vista ────
-  useEffect(() => {
-    const t = setTimeout(() => mapRef.current?.invalidateSize(), 100)
-    return () => clearTimeout(t)
-  }, [])
-
-  // ── Animar entrada ────────────────────────────────────
+  // ── Animar entrada ─────────────────────────────────────
   useEffect(() => {
     gsap.fromTo(containerRef.current,
       { opacity: 0 }, { opacity: 1, duration: 0.4, ease: 'power2.out' }
     )
   }, [])
 
-  const handlePhotoClick = useCallback((photo) => {
+  const handlePhotoClick = useCallback(photo => {
     setSelectedPhoto(photo)
   }, [setSelectedPhoto])
+
+  const geoCount = photos.filter(p => p.lat != null).length
 
   return (
     <div
       ref={containerRef}
-      className="relative overflow-hidden"
-      style={{ height: 'calc(100vh - 200px)', minHeight: 400, opacity: 0 }}
+      style={{
+        position:  'relative',
+        height:    'calc(100vh - 200px)',
+        minHeight: '420px',
+        opacity:   0,
+        overflow:  'hidden',
+      }}
     >
-      {/* Contenedor del mapa Leaflet */}
+      {/* Contenedor Leaflet */}
       <div ref={mapDivRef} style={{ width: '100%', height: '100%' }} />
 
-      {/* Panel inferior con fotos del cluster */}
+      {/* Panel de fotos */}
       {activeCluster && (
         <PhotoPanel
           key={activeCluster.id}
@@ -259,12 +281,21 @@ export default function MapView() {
         />
       )}
 
-      {/* Leyenda */}
-      {!activeCluster && clusters.length > 0 && (
-        <div className="absolute bottom-5 left-5 z-[500]" style={{ pointerEvents: 'none' }}>
+      {/* Leyenda discreta */}
+      {!activeCluster && geoCount > 0 && (
+        <div
+          style={{ position: 'absolute', bottom: 20, left: 20, zIndex: 1500, pointerEvents: 'none' }}
+        >
           <p className="text-meta" style={{ color: 'var(--c-ink-dim)' }}>
-            {photos.filter(p => p.lat).length} fotogramas · {clusters.length} {clusters.length === 1 ? 'lugar' : 'lugares'}
+            {geoCount} fotogramas · {clusters.length} {clusters.length === 1 ? 'lugar' : 'lugares'}
           </p>
+        </div>
+      )}
+
+      {/* Hint al cargar — desaparece cuando hay marcadores */}
+      {mapReady && !clusters.length && (
+        <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', zIndex: 1500 }}>
+          <p className="text-meta" style={{ color: 'var(--c-ink-dim)' }}>Sin fotos geolocalizadas aún</p>
         </div>
       )}
     </div>
