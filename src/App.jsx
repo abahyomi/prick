@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { gsap } from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
-import { PhotoProvider }   from './context/PhotoContext'
-import { ToastProvider, useToast } from './context/ToastContext'
+import { PhotoProvider, usePhotos } from './context/PhotoContext'
+import { ToastProvider, useToast }  from './context/ToastContext'
 import Header      from './components/Header'
 import Gallery     from './components/Gallery'
 import UploadModal from './components/UploadModal'
@@ -14,6 +14,57 @@ import Toast       from './components/Toast'
 import { useDarkMode } from './hooks/useDarkMode'
 
 gsap.registerPlugin(ScrollTrigger)
+
+// ── Botón flotante fijo "+ Añadir" ───────────────────────
+function FloatingAdd({ ready }) {
+  const { setUploadModalOpen } = usePhotos()
+  const btnRef = useRef(null)
+
+  useEffect(() => {
+    if (!ready) return
+    gsap.fromTo(btnRef.current,
+      { opacity: 0, scale: 0.75 },
+      { opacity: 1, scale: 1, duration: 0.55, delay: 0.9, ease: 'back.out(1.8)' }
+    )
+  }, [ready])
+
+  return (
+    <button
+      ref={btnRef}
+      onClick={() => setUploadModalOpen(true)}
+      aria-label="Añadir fotograma"
+      style={{
+        position:        'fixed',
+        bottom:          28,
+        right:           24,
+        zIndex:          45,
+        opacity:         0,
+        width:           42,
+        height:          42,
+        border:          '1px solid var(--c-ink)',
+        backgroundColor: 'var(--c-surface)',
+        color:           'var(--c-ink)',
+        fontSize:        '1.25rem',
+        fontWeight:      300,
+        lineHeight:      1,
+        display:         'flex',
+        alignItems:      'center',
+        justifyContent:  'center',
+        transition:      'background-color 0.18s, color 0.18s',
+      }}
+      onMouseEnter={e => {
+        e.currentTarget.style.backgroundColor = 'var(--c-ink)'
+        e.currentTarget.style.color           = 'var(--c-surface)'
+      }}
+      onMouseLeave={e => {
+        e.currentTarget.style.backgroundColor = 'var(--c-surface)'
+        e.currentTarget.style.color           = 'var(--c-ink)'
+      }}
+    >
+      +
+    </button>
+  )
+}
 
 function ScrollBar() {
   const barRef = useRef(null)
@@ -54,6 +105,8 @@ function AppInner() {
         <UploadModal />
         <PhotoDetail />
       </div>
+
+      <FloatingAdd ready={ready} />
 
       {/* Toast global — éxito / error */}
       {toast && (

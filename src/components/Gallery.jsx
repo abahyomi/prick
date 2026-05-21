@@ -364,6 +364,45 @@ function GaleriaCard({ photo, index, onClick }) {
   )
 }
 
+// ─── Tarjeta "+" para añadir ────────────────────────────────
+function AddCard({ onClick, tall = true }) {
+  const ref = useRef(null)
+
+  useEffect(() => {
+    gsap.fromTo(ref.current,
+      { opacity: 0 },
+      {
+        opacity: 1, duration: 0.5, ease: 'power2.out',
+        scrollTrigger: {
+          trigger: ref.current, start: 'top 98%',
+          toggleActions: 'play none none none',
+        },
+      }
+    )
+    return () => ScrollTrigger.getAll()
+      .filter(t => t.trigger === ref.current).forEach(t => t.kill())
+  }, [])
+
+  return (
+    <div
+      ref={ref}
+      className={`${tall ? 'aspect-[4/5]' : 'aspect-[4/5]'} flex items-center justify-center`}
+      style={{
+        opacity:    0,
+        border:     '1px dashed rgba(var(--c-ink-rgb), 0.14)',
+        transition: 'border-color 0.2s',
+      }}
+      onClick={onClick}
+      onMouseEnter={e => (e.currentTarget.style.borderColor = 'rgba(var(--c-ink-rgb), 0.5)')}
+      onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(var(--c-ink-rgb), 0.14)')}
+    >
+      <span style={{ fontSize: '1.4rem', fontWeight: 200, color: 'var(--c-ink-dim)', lineHeight: 1 }}>
+        +
+      </span>
+    </div>
+  )
+}
+
 // ─── Galería principal ────────────────────────────────────────
 export default function Gallery() {
   const { photos, setSelectedPhoto, setUploadModalOpen } = usePhotos()
@@ -428,6 +467,7 @@ export default function Gallery() {
           {photos.map((photo, i) => (
             <GridCard key={photo.id} photo={photo} index={i} onClick={setSelectedPhoto} />
           ))}
+          <AddCard onClick={() => setUploadModalOpen(true)} />
         </div>
       )}
 
@@ -450,6 +490,16 @@ export default function Gallery() {
           {photos.map((photo, i) => (
             <GaleriaCard key={photo.id} photo={photo} index={i} onClick={setSelectedPhoto} />
           ))}
+          {/* Última celda: añadir foto */}
+          <div
+            className="aspect-[4/5] flex items-center justify-center"
+            style={{ backgroundColor: 'rgba(var(--c-ink-rgb), 0.03)', transition: 'background-color 0.2s' }}
+            onClick={() => setUploadModalOpen(true)}
+            onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'rgba(var(--c-ink-rgb), 0.08)')}
+            onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'rgba(var(--c-ink-rgb), 0.03)')}
+          >
+            <span style={{ fontSize: '1.2rem', fontWeight: 200, color: 'var(--c-ink-dim)' }}>+</span>
+          </div>
         </div>
       )}
 
