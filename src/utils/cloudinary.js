@@ -1,38 +1,23 @@
+import { compressToBlob } from './supabase'
+
 const CLOUD_NAME    = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME
 const UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET
 
 export const isCloudinaryConfigured = () => Boolean(CLOUD_NAME && UPLOAD_PRESET)
 
-// Comprime + convierte a data URL (base64 JPEG).
-// Las data URLs persisten en localStorage indefinidamente, a diferencia de blob://
-async function toDataURL(file, maxPx = 1080, quality = 0.88) {
+// Fallback sin backend: comprime y devuelve data URL (persiste en localStorage)
+async function toDataURL(file) {
+  const blob = await compressToBlob(file)
   return new Promise((resolve, reject) => {
-    const img = new Image()
-    const blob = URL.createObjectURL(file)
-
-    img.onload = () => {
-      URL.revokeObjectURL(blob) // limpia el blob temporal
-      let { naturalWidth: w, naturalHeight: h } = img
-
-      if (w > maxPx || h > maxPx) {
-        if (w > h) { h = Math.round(h * maxPx / w); w = maxPx }
-        else       { w = Math.round(w * maxPx / h); h = maxPx }
-      }
-
-      const canvas = document.createElement('canvas')
-      canvas.width  = w
-      canvas.height = h
-      canvas.getContext('2d').drawImage(img, 0, 0, w, h)
-      resolve(canvas.toDataURL('image/jpeg', quality))
-    }
-    img.onerror = reject
-    img.src = blob
+    const reader = new FileReader()
+    reader.onload  = e => resolve(e.target.result)
+    reader.onerror = reject
+    reader.readAsDataURL(blob)
   })
 }
 
 export async function uploadToCloudinary(file, onProgress) {
   if (!isCloudinaryConfigured()) {
-    // Fallback local: comprime y codifica como data URL (persiste en localStorage)
     onProgress?.(30)
     const dataUrl = await toDataURL(file)
     onProgress?.(100)
@@ -43,8 +28,6 @@ export async function uploadToCloudinary(file, onProgress) {
   formData.append('file', file)
   formData.append('upload_preset', UPLOAD_PRESET)
   formData.append('folder', 'prick')
-
-  const endpoint = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`
 
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest()
@@ -63,7 +46,7 @@ export async function uploadToCloudinary(file, onProgress) {
       }
     })
     xhr.addEventListener('error', () => reject(new Error('Network error')))
-    xhr.open('POST', endpoint)
+    xhr.open('POST', `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`)
     xhr.send(formData)
   })
 }

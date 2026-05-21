@@ -20,36 +20,49 @@ async function extractExif(file) {
   try {
     const tags = await Exifr.parse(file, {
       tiff: true, exif: true, gps: true, iptc: false, xmp: false,
-      pick: ['DateTimeOriginal', 'Make', 'Model', 'ISO', 'FNumber',
-             'ExposureTime', 'GPSLatitude', 'GPSLongitude'],
     })
     if (!tags) return {}
 
     const result = {}
 
-    if (tags.DateTimeOriginal instanceof Date)
-      result.date = tags.DateTimeOriginal.toISOString().split('T')[0]
+    // Fecha — DateTimeOriginal es un objeto Date en exifr
+    const dt = tags.DateTimeOriginal ?? tags.DateTime ?? tags.CreateDate
+    if (dt instanceof Date && !isNaN(dt))
+      result.date = dt.toISOString().split('T')[0]
 
-    if (tags.Make || tags.Model) {
-      const make  = (tags.Make  || '').replace('Apple', 'Apple').trim()
-      const model = (tags.Model || '').trim()
-      // evitar duplicar "Apple Apple iPhone 15"
-      result.camera = model.startsWith(make) ? model : `${make} ${model}`.trim()
+    // Cámara — para Apple solo usar el Model (ya incluye "iPhone 14")
+    const make  = (tags.Make  || '').trim()
+    const model = (tags.Model || '').trim()
+    if (model) {
+      const makeNoBrand = make.toLowerCase()
+      // Si el modelo ya contiene la marca (ej. "Apple iPhone"), usa solo el modelo
+      result.camera = model.toLowerCase().includes(makeNoBrand) || makeNoBrand === 'apple'
+        ? model
+        : `${make} ${model}`.trim()
+    } else if (make) {
+      result.camera = make
     }
 
+    // Técnica
     if (tags.ISO)          result.iso      = String(tags.ISO)
-    if (tags.FNumber)      result.aperture = `f/${tags.FNumber}`
+    if (tags.FNumber)      result.aperture = `f/${Number(tags.FNumber).toFixed(1).replace('.0','')}`
     if (tags.ExposureTime) {
-      const t = tags.ExposureTime
+      const t = Number(tags.ExposureTime)
       result.shutter = t >= 1 ? `${t}s` : `1/${Math.round(1 / t)}s`
     }
 
-    if (tags.GPSLatitude && tags.GPSLongitude) {
-      result.location = await reverseGeocode(tags.GPSLatitude, tags.GPSLongitude)
+    // GPS — exifr devuelve decimal con signo (N=+, S=−, E=+, W=−)
+    const lat = tags.latitude  ?? tags.GPSLatitude
+    const lng = tags.longitude ?? tags.GPSLongitude
+    if (lat != null && lng != null && !isNaN(lat) && !isNaN(lng)) {
+      result.location = await reverseGeocode(lat, lng)
     }
 
     return result
-  } catch { return {} }
+  } catch (e) {
+    console.warn('[EXIF]', e)
+    return {}
+  }
 }
 
 async function reverseGeocode(lat, lng) {
@@ -132,9 +145,19 @@ export default function UploadModal() {
   async function handleSubmit(e) {
     e.preventDefault()
     if (!file) return
-    const uploaded = await upload(file)
+
+    // Generar ID aquí para que Storage y DB compartan el mismo identificador
+    const id = `photo-${Date.now()}`
+    const uploaded = await upload(file, id)
     if (!uploaded) return
-    addPhoto({ ...form, url: uploaded.url, thumb: uploaded.thumb, publicId: uploaded.publicId })
+
+    await addPhoto({
+      ...form,
+      id,
+      url:       uploaded.url,
+      thumb:     uploaded.thumb,
+      publicId:  uploaded.publicId ?? id,
+    })
     close()
   }
 
