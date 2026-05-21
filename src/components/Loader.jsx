@@ -1,21 +1,23 @@
 import React, { useEffect, useRef } from 'react'
 import { gsap } from 'gsap'
 
+const LETTERS = ['P', 'R', 'I', 'C', 'K']
+
 export default function Loader({ onComplete }) {
-  const rootRef    = useRef(null)
-  const leftARef   = useRef(null)
-  const rightARef  = useRef(null)
-  const lineRef    = useRef(null)
-  const subRef     = useRef(null)
-  const volRef     = useRef(null)
+  const rootRef   = useRef(null)
+  const letterRefs = useRef([])   // one ref per letter span
+  const lineRef   = useRef(null)
+  const subRef    = useRef(null)
+  const volRef    = useRef(null)
 
   useEffect(() => {
-    // Initial state
-    gsap.set(leftARef.current,  { xPercent: -120, opacity: 0 })
-    gsap.set(rightARef.current, { xPercent:  120, opacity: 0 })
-    gsap.set(lineRef.current,   { scaleX: 0, transformOrigin: 'center' })
-    gsap.set(subRef.current,    { opacity: 0, y: 14 })
-    gsap.set(volRef.current,    { opacity: 0 })
+    const letters = letterRefs.current
+
+    // Initial states — letters start below their clipping containers
+    gsap.set(letters,       { yPercent: 115, opacity: 0 })
+    gsap.set(lineRef.current,  { scaleX: 0, transformOrigin: 'center' })
+    gsap.set(subRef.current,   { opacity: 0, y: 12 })
+    gsap.set(volRef.current,   { opacity: 0 })
 
     const tl = gsap.timeline({
       defaults: { ease: 'power3.out' },
@@ -23,47 +25,48 @@ export default function Loader({ onComplete }) {
     })
 
     tl
-      // Both A's slide in toward each other
-      .to([leftARef.current, rightARef.current], {
-        xPercent: 0, opacity: 1,
-        duration: 1.0,
-        stagger: 0.05,
+      // Letters rise up one by one through clip containers
+      .to(letters, {
+        yPercent: 0,
+        opacity: 1,
+        duration: 0.85,
+        stagger: 0.08,
       })
-      // Connecting line expands from center
+      // Línea desde el centro
       .to(lineRef.current, {
         scaleX: 1,
-        duration: 0.55,
+        duration: 0.5,
         ease: 'power2.inOut',
-      }, '-=0.25')
-      // Subtitle rises up
+      }, '-=0.3')
+      // Subtítulo sube
       .to(subRef.current, {
         opacity: 1, y: 0,
-        duration: 0.45,
+        duration: 0.42,
       }, '-=0.15')
-      // Small vol number
+      // Número de volumen
       .to(volRef.current, {
-        opacity: 0.35,
-        duration: 0.4,
+        opacity: 0.3,
+        duration: 0.35,
       }, '-=0.1')
-      // Hold
-      .to({}, { duration: 0.85 })
-      // Exit: letters split apart, screen slides up
-      .to([leftARef.current, rightARef.current], {
-        xPercent: (i) => i === 0 ? -30 : 30,
+      // Pausa
+      .to({}, { duration: 0.7 })
+      // Salida: letras se van hacia arriba con stagger
+      .to(letters, {
+        yPercent: -115,
         opacity: 0,
-        duration: 0.5,
+        duration: 0.4,
         ease: 'power2.in',
-        stagger: 0.04,
+        stagger: 0.05,
       })
       .to([lineRef.current, subRef.current, volRef.current], {
-        opacity: 0, duration: 0.3,
+        opacity: 0, duration: 0.25,
       }, '<')
-      // Whole panel slides up off screen
+      // Panel sube off-screen
       .to(rootRef.current, {
         yPercent: -100,
-        duration: 0.75,
+        duration: 0.72,
         ease: 'power4.inOut',
-      }, '-=0.05')
+      }, '-=0.1')
 
     return () => tl.kill()
   }, [])
@@ -71,51 +74,45 @@ export default function Loader({ onComplete }) {
   return (
     <div
       ref={rootRef}
-      className="fixed inset-0 z-[100] flex flex-col items-center justify-center"
-      style={{ backgroundColor: '#000000' }}
+      className="fixed inset-0 z-[100] flex flex-col items-center justify-center select-none"
+      style={{ backgroundColor: '#000' }}
     >
-      {/* Monogram */}
-      <div className="flex items-end gap-2 md:gap-6 overflow-visible">
-        <span
-          ref={leftARef}
-          className="font-bold select-none leading-none"
-          style={{
-            color: '#ffffff',
-            fontSize: 'clamp(7rem, 22vw, 22rem)',
-            letterSpacing: '-0.05em',
-          }}
-        >
-          A
-        </span>
-        <span
-          ref={rightARef}
-          className="font-bold select-none leading-none"
-          style={{
-            color: '#ffffff',
-            fontSize: 'clamp(7rem, 22vw, 22rem)',
-            letterSpacing: '-0.05em',
-          }}
-        >
-          A
-        </span>
+      {/* PRICK — letras con contenedor clip-hidden para el slide-up */}
+      <div className="flex items-end" style={{ gap: 'clamp(0.1rem, 0.8vw, 1rem)' }}>
+        {LETTERS.map((l, i) => (
+          <div key={l} style={{ overflow: 'hidden', lineHeight: 1 }}>
+            <span
+              ref={el => (letterRefs.current[i] = el)}
+              className="block font-bold"
+              style={{
+                color:         '#fff',
+                fontSize:      'clamp(5.5rem, 18vw, 18rem)',
+                letterSpacing: '-0.045em',
+                lineHeight:    0.92,
+              }}
+            >
+              {l}
+            </span>
+          </div>
+        ))}
       </div>
 
-      {/* Dividing line */}
+      {/* Línea */}
       <div
         ref={lineRef}
         style={{
-          width: 'clamp(8rem, 24vw, 24rem)',
-          height: '1px',
-          backgroundColor: '#ffffff',
-          marginTop: '1rem',
+          width:           'clamp(7rem, 22vw, 22rem)',
+          height:          '1px',
+          backgroundColor: 'rgba(255,255,255,0.5)',
+          marginTop:       '1.2rem',
         }}
       />
 
-      {/* Subtitle */}
+      {/* Subtítulo */}
       <p
         ref={subRef}
         className="text-meta mt-4"
-        style={{ color: '#ffffff', letterSpacing: '0.35em' }}
+        style={{ color: 'rgba(255,255,255,0.55)', letterSpacing: '0.32em' }}
       >
         Abahyomi &times; Alexandra
       </p>
@@ -124,7 +121,7 @@ export default function Loader({ onComplete }) {
       <p
         ref={volRef}
         className="text-meta absolute bottom-8 right-8"
-        style={{ color: '#ffffff' }}
+        style={{ color: 'rgba(255,255,255,0.3)' }}
       >
         Vol. I
       </p>

@@ -161,35 +161,54 @@ function GridCard({ photo, index, onClick }) {
 }
 
 // ─── Fila de lista ───────────────────────────────────────────
+// Fotos pequeñas (~w-14/20) para caber 6-8 por fold.
+// Animación en dos pasos: imagen con wipe clip-path + texto con fade-rise.
 function ListRow({ photo, index, onClick }) {
-  const rowRef = useRef(null)
-  const imgRef = useRef(null)
+  const rowRef  = useRef(null)
+  const imgRef  = useRef(null)
+  const textRef = useRef(null)
 
   useEffect(() => {
-    gsap.fromTo(rowRef.current,
-      { opacity: 0, x: -28, filter: 'blur(3px)' },
-      {
-        opacity: 1, x: 0, filter: 'blur(0px)',
-        duration: 0.7, ease: 'power2.out',
-        delay: (index % 3) * 0.07,
-        scrollTrigger: {
-          trigger: rowRef.current,
-          start:   'top 96%',
-          toggleActions: 'play none none none',
-        },
-      }
-    )
+    const row  = rowRef.current
+    const img  = imgRef.current
+    const txt  = textRef.current
 
-    return () => ScrollTrigger.getAll()
-      .filter(t => t.trigger === rowRef.current)
-      .forEach(t => t.kill())
+    // Estados iniciales ocultos
+    gsap.set(img, { clipPath: 'inset(0 100% 0 0)', filter: 'blur(4px)' })
+    gsap.set(txt, { opacity: 0, y: 12 })
+
+    const st = ScrollTrigger.create({
+      trigger: row,
+      start:   'top 97%',
+      once:    true,
+      onEnter: () => {
+        const tl = gsap.timeline({ delay: (index % 4) * 0.045 })
+
+        // Imagen: wipe de izquierda a derecha + desenfoque
+        tl.to(img, {
+          clipPath: 'inset(0 0% 0 0)',
+          filter:   'blur(0px)',
+          duration: 0.62,
+          ease:     'power2.inOut',
+        })
+        // Texto: sube y aparece justo después
+        .to(txt, {
+          opacity:  1,
+          y:        0,
+          duration: 0.5,
+          ease:     'power2.out',
+        }, '-=0.38')
+      },
+    })
+
+    return () => st.kill()
   }, [index])
 
   const handleEnter = useCallback(() => {
-    gsap.to(imgRef.current, { scale: 1.04, duration: 0.5, ease: 'power2.out' })
+    gsap.to(imgRef.current, { scale: 1.05, duration: 0.45, ease: 'power2.out' })
   }, [])
   const handleLeave = useCallback(() => {
-    gsap.to(imgRef.current, { scale: 1, duration: 0.5, ease: 'power2.inOut' })
+    gsap.to(imgRef.current, { scale: 1, duration: 0.45, ease: 'power2.inOut' })
   }, [])
 
   const onImgLoad = useCallback(e => e.target.classList.add('loaded'), [])
@@ -201,14 +220,13 @@ function ListRow({ photo, index, onClick }) {
   return (
     <div
       ref={rowRef}
-      className="flex gap-8 md:gap-12 py-10"
-      style={{ opacity: 0 }}
+      className="flex items-center gap-4 md:gap-6 py-3 md:py-4"
       onClick={() => onClick(photo)}
       onMouseEnter={handleEnter}
       onMouseLeave={handleLeave}
     >
-      {/* Miniatura */}
-      <div className="w-28 md:w-48 lg:w-60 flex-shrink-0 overflow-hidden aspect-[3/4] photo-placeholder relative">
+      {/* Miniatura compacta — w-14 sm:w-16 md:w-20 */}
+      <div className="w-14 sm:w-16 md:w-20 flex-shrink-0 overflow-hidden aspect-[2/3] photo-placeholder relative">
         <img
           ref={imgRef}
           src={photo.thumb || photo.url}
@@ -220,35 +238,33 @@ function ListRow({ photo, index, onClick }) {
         />
       </div>
 
-      {/* Metadatos */}
-      <div className="flex flex-col justify-between py-1 min-w-0 flex-1">
-        <div>
-          <p className="text-meta mb-3" style={{ color: 'var(--c-ink-dim)' }}>
-            {fecha}
-          </p>
+      {/* Metadatos compactos */}
+      <div ref={textRef} className="flex flex-col justify-center min-w-0 flex-1 gap-1">
+        <div className="flex items-baseline gap-3 min-w-0">
           <h3
-            className="font-semibold leading-none text-ink"
-            style={{ fontSize: 'clamp(1.2rem, 3vw, 2.6rem)', letterSpacing: '-0.025em' }}
+            className="font-medium leading-none text-ink truncate"
+            style={{ fontSize: 'clamp(0.78rem, 1.6vw, 1.05rem)', letterSpacing: '-0.01em' }}
           >
             {photo.location}
           </h3>
-          <p
-            className="font-light mt-4 max-w-xl leading-relaxed"
-            style={{ fontSize: '0.82rem', color: 'var(--c-ink-dim)' }}
-          >
-            {photo.description}
-          </p>
+          <span className="text-meta flex-shrink-0" style={{ color: 'var(--c-ink-dim)' }}>
+            {new Date(photo.date).toLocaleDateString('es-ES', { month: 'short', year: 'numeric' })}
+          </span>
         </div>
 
-        {/* Técnica mínima */}
-        <div className="flex flex-wrap gap-4 mt-5">
-          {[photo.camera, photo.iso && `ISO ${photo.iso}`, photo.aperture, photo.author]
-            .filter(Boolean)
-            .map((v, i) => (
-              <span key={i} className="text-meta" style={{ color: 'var(--c-ink-dim)', opacity: 0.55 }}>
-                {v}
-              </span>
-            ))}
+        <p
+          className="font-light leading-snug line-clamp-1"
+          style={{ fontSize: '0.7rem', color: 'var(--c-ink-dim)' }}
+        >
+          {photo.description}
+        </p>
+
+        <div className="flex gap-3">
+          {[photo.author, photo.camera].filter(Boolean).map((v, i) => (
+            <span key={i} className="text-meta" style={{ color: 'var(--c-ink-dim)', opacity: 0.45 }}>
+              {v}
+            </span>
+          ))}
         </div>
       </div>
     </div>
