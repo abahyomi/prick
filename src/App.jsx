@@ -3,15 +3,17 @@ import { gsap } from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { PhotoProvider, usePhotos } from './context/PhotoContext'
 import { ToastProvider, useToast }  from './context/ToastContext'
-import Header      from './components/Header'
-import Gallery     from './components/Gallery'
-import MapView     from './components/MapView'
-import UploadModal from './components/UploadModal'
-import PhotoDetail from './components/PhotoDetail'
-import Loader      from './components/Loader'
-import FilmGrain   from './components/FilmGrain'
-import Cursor      from './components/Cursor'
-import Toast       from './components/Toast'
+import Header       from './components/Header'
+import Gallery      from './components/Gallery'
+import MapView      from './components/MapView'
+import UploadModal  from './components/UploadModal'
+import PhotoDetail  from './components/PhotoDetail'
+import Loader       from './components/Loader'
+import FilmGrain    from './components/FilmGrain'
+import Cursor       from './components/Cursor'
+import Toast        from './components/Toast'
+import MusicPlayer  from './components/MusicPlayer'
+import PrintView    from './components/PrintView'
 import { useDarkMode } from './hooks/useDarkMode'
 
 gsap.registerPlugin(ScrollTrigger)
@@ -108,10 +110,14 @@ function AppInner() {
       </div>
 
       <FloatingAdd ready={ready} page={page} />
+      <MusicPlayer />
 
       {toast && (
         <Toast key={toast.key} message={toast.message} type={toast.type} onDone={clearToast} />
       )}
+
+      {/* Layout solo para imprimir — invisible en pantalla */}
+      <PrintView />
     </PhotoProvider>
   )
 }

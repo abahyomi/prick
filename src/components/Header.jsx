@@ -82,7 +82,7 @@ export default function Header({ ready, dark, onToggleDark, page, onPageChange }
           Abahyomi &amp; Alexandra
         </p>
 
-        {/* Navegación Archivo / Mapa */}
+        {/* Navegación Archivo / Mapa + Imprimir */}
         <nav className="flex items-center gap-6">
           {NAV_PAGES.map(({ id, label }) => (
             <button
@@ -90,15 +90,23 @@ export default function Header({ ready, dark, onToggleDark, page, onPageChange }
               onClick={() => onPageChange(id)}
               className="text-meta transition-all"
               style={{
-                color:          page === id ? 'var(--c-ink)' : 'var(--c-ink-dim)',
-                borderBottom:   page === id ? '1px solid var(--c-ink)' : '1px solid transparent',
-                paddingBottom:  '2px',
-                letterSpacing:  '0.22em',
+                color:         page === id ? 'var(--c-ink)' : 'var(--c-ink-dim)',
+                borderBottom:  page === id ? '1px solid var(--c-ink)' : '1px solid transparent',
+                paddingBottom: '2px',
+                letterSpacing: '0.22em',
               }}
             >
               {label}
             </button>
           ))}
+          <button
+            onClick={() => window.print()}
+            className="text-meta transition-opacity hover:opacity-50"
+            style={{ color: 'var(--c-ink-dim)' }}
+            title="Imprimir / Guardar como PDF"
+          >
+            ⎙
+          </button>
         </nav>
       </div>
     </header>

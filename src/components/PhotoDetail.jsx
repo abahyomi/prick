@@ -5,8 +5,29 @@ import { usePhotoUpload } from '../hooks/usePhotoUpload'
 import { useToast } from '../context/ToastContext'
 import CropEditor, { dataUrlToFile } from './CropEditor'
 
+// ── Hint de swipe (primera visita en móvil) ────────────────
+function SwipeHint({ onDone }) {
+  const arrowRef = useRef(null)
+  useEffect(() => {
+    const tl = gsap.timeline({ repeat: 2, onComplete: onDone })
+    tl.fromTo(arrowRef.current,
+      { x: 20, opacity: 0 },
+      { x: -20, opacity: 0.9, duration: 0.7, ease: 'power1.inOut' }
+    ).to(arrowRef.current, { opacity: 0, duration: 0.2 })
+    return () => tl.kill()
+  }, [])
+  return (
+    <div className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ zIndex: 5 }}>
+      <div ref={arrowRef} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, opacity: 0 }}>
+        <span style={{ fontSize: '1.6rem', color: 'rgba(255,255,255,0.8)' }}>←</span>
+        <p className="text-meta" style={{ color: 'rgba(255,255,255,0.55)' }}>Desliza</p>
+      </div>
+    </div>
+  )
+}
+
 export default function PhotoDetail() {
-  const { selectedPhoto, setSelectedPhoto, updatePhoto, deletePhoto } = usePhotos()
+  const { photos, selectedPhoto, setSelectedPhoto, updatePhoto, deletePhoto } = usePhotos()
   const { upload, uploading, progress } = usePhotoUpload()
   const { showToast } = useToast()
 
@@ -15,15 +36,58 @@ export default function PhotoDetail() {
   const [imgPreview,    setImgPreview]   = useState(null)
   const [showMediaMenu, setShowMediaMenu] = useState(false)
   const [showCrop,      setShowCrop]     = useState(false)
+  const [showHint,      setShowHint]     = useState(false)
 
-  const overlayRef    = useRef(null)
-  const imgRef        = useRef(null)
-  const contentRef    = useRef(null)
-  const metaRef       = useRef(null)
-  const fileInputRef  = useRef(null)   // sin capture → galería de fotos
-  const cameraInputRef = useRef(null)  // capture="environment" → cámara
+  const overlayRef     = useRef(null)
+  const imgRef         = useRef(null)
+  const contentRef     = useRef(null)
+  const metaRef        = useRef(null)
+  const fileInputRef   = useRef(null)
+  const cameraInputRef = useRef(null)
+  const touchXRef      = useRef(null)
+
+  // Índice y navegación entre fotos
+  const currentIdx = photos.findIndex(p => p.id === selectedPhoto?.id)
+  const prevPhoto  = currentIdx > 0               ? photos[currentIdx - 1] : null
+  const nextPhoto  = currentIdx < photos.length - 1 ? photos[currentIdx + 1] : null
+
+  // Swipe horizontal para navegar
+  const handleTouchStart = useCallback((e) => {
+    touchXRef.current = e.touches[0].clientX
+  }, [])
+
+  const handleTouchEnd = useCallback((e) => {
+    if (touchXRef.current === null || editing || showCrop) return
+    const delta = touchXRef.current - e.changedTouches[0].clientX
+    touchXRef.current = null
+    if (Math.abs(delta) < 48) return
+
+    // Marcar hint como visto
+    if (showHint) {
+      setShowHint(false)
+      localStorage.setItem('prick_swipe_hint', '1')
+    }
+
+    const dir  = delta > 0 ? 1 : -1
+    const next = delta > 0 ? nextPhoto : prevPhoto
+    if (!next) return
+
+    gsap.fromTo(overlayRef.current,
+      { x: dir * 40, opacity: 0.6 },
+      { x: 0, opacity: 1, duration: 0.28, ease: 'power2.out' }
+    )
+    setSelectedPhoto(next)
+  }, [editing, showCrop, showHint, nextPhoto, prevPhoto, setSelectedPhoto])
 
   // ── Animación de apertura ───────────────────────────────────
+  // Mostrar swipe hint solo en móvil y primera visita
+  useEffect(() => {
+    if (!selectedPhoto) return
+    const isMobile = navigator.maxTouchPoints > 0
+    const seen     = localStorage.getItem('prick_swipe_hint')
+    if (isMobile && !seen && photos.length > 1) setShowHint(true)
+  }, [selectedPhoto?.id])
+
   useEffect(() => {
     if (!selectedPhoto) { setEditing(false); setImgPreview(null); return }
     setEditForm({ ...selectedPhoto })
@@ -220,8 +284,55 @@ export default function PhotoDetail() {
       {/* ── Layout principal ── */}
       <div className="grid grid-cols-1 md:grid-cols-12 min-h-[calc(100vh-53px)]">
 
-        {/* Columna imagen */}
-        <div className="md:col-span-7 relative flex items-center justify-center bg-black min-h-[55vw] md:min-h-0">
+        {/* Columna imagen — soporta swipe horizontal */}
+        <div
+          className="md:col-span-7 relative flex items-center justify-center bg-black min-h-[55vw] md:min-h-0"
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
+        >
+          {/* Flechas de navegación (desktop) */}
+          {prevPhoto && !editing && (
+            <button
+              onClick={() => setSelectedPhoto(prevPhoto)}
+              aria-label="Foto anterior"
+              style={{
+                position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)',
+                zIndex: 5, color: 'rgba(255,255,255,0.55)', fontSize: '1.4rem',
+                width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                transition: 'color 0.2s',
+              }}
+              onMouseEnter={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.9)')}
+              onMouseLeave={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.55)')}
+              className="hidden md:flex"
+            >‹</button>
+          )}
+          {nextPhoto && !editing && (
+            <button
+              onClick={() => setSelectedPhoto(nextPhoto)}
+              aria-label="Foto siguiente"
+              style={{
+                position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)',
+                zIndex: 5, color: 'rgba(255,255,255,0.55)', fontSize: '1.4rem',
+                width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                transition: 'color 0.2s',
+              }}
+              onMouseEnter={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.9)')}
+              onMouseLeave={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.55)')}
+              className="hidden md:flex"
+            >›</button>
+          )}
+
+          {/* Contador de posición */}
+          {photos.length > 1 && !editing && (
+            <div style={{
+              position: 'absolute', top: 12, right: 12, zIndex: 5,
+            }}>
+              <p className="text-meta" style={{ color: 'rgba(255,255,255,0.35)' }}>
+                {currentIdx + 1} / {photos.length}
+              </p>
+            </div>
+          )}
+
           <img
             ref={imgRef}
             src={currentImgSrc}
@@ -230,6 +341,14 @@ export default function PhotoDetail() {
             className="lazy-fade w-full h-full object-contain grayscale max-h-[85vh]"
             style={{ opacity: 0 }}
           />
+
+          {/* Swipe hint (primera visita móvil) */}
+          {showHint && !editing && (
+            <SwipeHint onDone={() => {
+              setShowHint(false)
+              localStorage.setItem('prick_swipe_hint', '1')
+            }} />
+          )}
 
           {/* Overlay de edición — dos botones: Cambiar y Reencuadrar */}
           {editing && (
