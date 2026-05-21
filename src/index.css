@@ -112,6 +112,31 @@ img.lazy-fade.loaded {
   100% { background-position: -200% 0; }
 }
 
+/* ─── Slider del editor de recorte ──────────────────────── */
+.crop-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 1px;
+  background: rgba(255,255,255,0.2);
+  outline: none;
+  border-radius: 0;
+  width: 100%;
+}
+.crop-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  background: rgba(255,255,255,0.82);
+  border-radius: 50%;
+}
+.crop-slider::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  background: rgba(255,255,255,0.82);
+  border: none;
+  border-radius: 50%;
+}
+
 /* ─── View transition ────────────────────────────────────── */
 @keyframes viewFade {
   from { opacity: 0; transform: translateY(12px); }

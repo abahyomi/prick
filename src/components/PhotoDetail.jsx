@@ -3,16 +3,18 @@ import { gsap } from 'gsap'
 import { usePhotos } from '../context/PhotoContext'
 import { usePhotoUpload } from '../hooks/usePhotoUpload'
 import { useToast } from '../context/ToastContext'
+import CropEditor, { dataUrlToFile } from './CropEditor'
 
 export default function PhotoDetail() {
   const { selectedPhoto, setSelectedPhoto, updatePhoto, deletePhoto } = usePhotos()
   const { upload, uploading, progress } = usePhotoUpload()
   const { showToast } = useToast()
 
-  const [editing,      setEditing]     = useState(false)
-  const [editForm,     setEditForm]    = useState({})
-  const [imgPreview,   setImgPreview]  = useState(null)
-  const [showMediaMenu, setShowMediaMenu] = useState(false) // menú galería/cámara en móvil
+  const [editing,       setEditing]      = useState(false)
+  const [editForm,      setEditForm]     = useState({})
+  const [imgPreview,    setImgPreview]   = useState(null)
+  const [showMediaMenu, setShowMediaMenu] = useState(false)
+  const [showCrop,      setShowCrop]     = useState(false)
 
   const overlayRef    = useRef(null)
   const imgRef        = useRef(null)
@@ -131,6 +133,7 @@ export default function PhotoDetail() {
   const currentImgSrc = imgPreview || selectedPhoto.url
 
   return (
+    <>
     <div
       ref={overlayRef}
       className="fixed inset-0 z-[60] bg-surface overflow-y-auto no-scrollbar"
@@ -227,26 +230,51 @@ export default function PhotoDetail() {
             style={{ opacity: 0 }}
           />
 
-          {/* Overlay de cambio de foto — visible solo en modo edición */}
+          {/* Overlay de edición — dos botones: Cambiar y Reencuadrar */}
           {editing && (
-            <button
-              onClick={handleChangePhotoClick}
-              className="absolute inset-0 flex flex-col items-center justify-center gap-3 transition-all"
-              style={{ backgroundColor: 'rgba(0,0,0,0.50)' }}
-              onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'rgba(0,0,0,0.66)')}
-              onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'rgba(0,0,0,0.50)')}
+            <div
+              className="absolute inset-0 flex flex-col items-center justify-center gap-5"
+              style={{ backgroundColor: 'rgba(0,0,0,0.52)' }}
             >
-              <svg width="30" height="30" viewBox="0 0 24 24" fill="none"
-                stroke="rgba(255,255,255,0.82)" strokeWidth="1.2"
-                strokeLinecap="round" strokeLinejoin="round"
+              {/* Cambiar foto */}
+              <button
+                onClick={handleChangePhotoClick}
+                className="flex flex-col items-center gap-2 transition-opacity hover:opacity-60"
               >
-                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
-                <circle cx="12" cy="13" r="4"/>
-              </svg>
-              <span className="text-meta" style={{ color: 'rgba(255,255,255,0.68)', letterSpacing: '0.22em' }}>
-                {imgPreview ? 'Cambiar selección' : 'Cambiar foto'}
-              </span>
-            </button>
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none"
+                  stroke="rgba(255,255,255,0.82)" strokeWidth="1.2"
+                  strokeLinecap="round" strokeLinejoin="round"
+                >
+                  <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                  <circle cx="12" cy="13" r="4"/>
+                </svg>
+                <span className="text-meta" style={{ color: 'rgba(255,255,255,0.65)' }}>
+                  {imgPreview ? 'Cambiar selección' : 'Cambiar foto'}
+                </span>
+              </button>
+
+              {/* Separador */}
+              <div style={{ width: '1px', height: 24, backgroundColor: 'rgba(255,255,255,0.18)' }} />
+
+              {/* Reencuadrar */}
+              <button
+                onClick={() => setShowCrop(true)}
+                className="flex flex-col items-center gap-2 transition-opacity hover:opacity-60"
+              >
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none"
+                  stroke="rgba(255,255,255,0.82)" strokeWidth="1.2"
+                  strokeLinecap="round" strokeLinejoin="round"
+                >
+                  <polyline points="15 3 21 3 21 9"/>
+                  <polyline points="9 21 3 21 3 15"/>
+                  <line x1="21" y1="3" x2="14" y2="10"/>
+                  <line x1="3" y1="21" x2="10" y2="14"/>
+                </svg>
+                <span className="text-meta" style={{ color: 'rgba(255,255,255,0.65)' }}>
+                  Reencuadrar
+                </span>
+              </button>
+            </div>
           )}
 
           {/* Input galería — sin capture */}
@@ -416,6 +444,27 @@ export default function PhotoDetail() {
         </div>
       </div>
     </div>
+
+    {/* Editor de recorte — pantalla completa encima de todo */}
+    {showCrop && (
+      <CropEditor
+        src={imgPreview || selectedPhoto.url}
+        onCancel={() => setShowCrop(false)}
+        onSave={dataUrl => {
+          const file = dataUrlToFile(dataUrl)
+          setImgPreview(dataUrl)
+          setEditForm(f => ({ ...f, _pendingFile: file }))
+          setShowCrop(false)
+          if (imgRef.current) {
+            gsap.fromTo(imgRef.current,
+              { opacity: 0, scale: 0.97, filter: 'blur(6px)' },
+              { opacity: 1, scale: 1, filter: 'blur(0px)', duration: 0.5, ease: 'power2.out' }
+            )
+          }
+        }}
+      />
+    )}
+    </>
   )
 }
 
