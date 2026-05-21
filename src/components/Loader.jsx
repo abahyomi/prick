@@ -78,7 +78,7 @@ export default function Loader({ onComplete }) {
       <div className="flex items-end gap-2 md:gap-6 overflow-visible">
         <span
           ref={leftARef}
-          className="font-black select-none leading-none"
+          className="font-bold select-none leading-none"
           style={{
             color: '#ffffff',
             fontSize: 'clamp(7rem, 22vw, 22rem)',
@@ -89,7 +89,7 @@ export default function Loader({ onComplete }) {
         </span>
         <span
           ref={rightARef}
-          className="font-black select-none leading-none"
+          className="font-bold select-none leading-none"
           style={{
             color: '#ffffff',
             fontSize: 'clamp(7rem, 22vw, 22rem)',
