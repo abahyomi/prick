@@ -5,6 +5,7 @@ import { PhotoProvider, usePhotos } from './context/PhotoContext'
 import { ToastProvider, useToast }  from './context/ToastContext'
 import Header      from './components/Header'
 import Gallery     from './components/Gallery'
+import MapView     from './components/MapView'
 import UploadModal from './components/UploadModal'
 import PhotoDetail from './components/PhotoDetail'
 import Loader      from './components/Loader'
@@ -15,8 +16,8 @@ import { useDarkMode } from './hooks/useDarkMode'
 
 gsap.registerPlugin(ScrollTrigger)
 
-// ── Botón flotante fijo "+ Añadir" ───────────────────────
-function FloatingAdd({ ready }) {
+// ── Botón flotante "+ Añadir" ─────────────────────────────
+function FloatingAdd({ ready, page }) {
   const { setUploadModalOpen } = usePhotos()
   const btnRef = useRef(null)
 
@@ -28,52 +29,42 @@ function FloatingAdd({ ready }) {
     )
   }, [ready])
 
+  // No mostrar en el mapa
+  if (page === 'map') return null
+
   return (
     <button
       ref={btnRef}
       onClick={() => setUploadModalOpen(true)}
       aria-label="Añadir fotograma"
       style={{
-        position:        'fixed',
-        bottom:          28,
-        right:           24,
-        zIndex:          45,
-        opacity:         0,
-        width:           42,
-        height:          42,
-        border:          '1px solid var(--c-ink)',
-        backgroundColor: 'var(--c-surface)',
-        color:           'var(--c-ink)',
-        fontSize:        '1.25rem',
-        fontWeight:      300,
-        lineHeight:      1,
-        display:         'flex',
-        alignItems:      'center',
-        justifyContent:  'center',
-        transition:      'background-color 0.18s, color 0.18s',
+        position: 'fixed', bottom: 28, right: 24, zIndex: 45,
+        opacity: 0, width: 42, height: 42,
+        border: '1px solid var(--c-ink)',
+        backgroundColor: 'var(--c-surface)', color: 'var(--c-ink)',
+        fontSize: '1.25rem', fontWeight: 300, lineHeight: 1,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        transition: 'background-color 0.18s, color 0.18s',
       }}
-      onMouseEnter={e => {
-        e.currentTarget.style.backgroundColor = 'var(--c-ink)'
-        e.currentTarget.style.color           = 'var(--c-surface)'
-      }}
-      onMouseLeave={e => {
-        e.currentTarget.style.backgroundColor = 'var(--c-surface)'
-        e.currentTarget.style.color           = 'var(--c-ink)'
-      }}
-    >
-      +
-    </button>
+      onMouseEnter={e => { e.currentTarget.style.backgroundColor='var(--c-ink)'; e.currentTarget.style.color='var(--c-surface)' }}
+      onMouseLeave={e => { e.currentTarget.style.backgroundColor='var(--c-surface)'; e.currentTarget.style.color='var(--c-ink)' }}
+    >+</button>
   )
 }
 
-function ScrollBar() {
+// ── Barra de progreso de scroll ───────────────────────────
+function ScrollBar({ page }) {
   const barRef = useRef(null)
   useEffect(() => {
-    gsap.to(barRef.current, {
-      scaleX: 1, ease: 'none',
-      scrollTrigger: { start: 'top top', end: 'bottom bottom', scrub: 0 },
+    if (page === 'map') return
+    const st = ScrollTrigger.create({
+      start: 'top top', end: 'bottom bottom',
+      onUpdate: self => { if (barRef.current) gsap.set(barRef.current, { scaleX: self.progress }) },
     })
-  }, [])
+    return () => st.kill()
+  }, [page])
+
+  if (page === 'map') return null
   return (
     <div ref={barRef} style={{
       position: 'fixed', top: 0, left: 0,
@@ -85,37 +76,41 @@ function ScrollBar() {
   )
 }
 
-// Inner app tiene acceso al ToastContext
+// ── App interior ──────────────────────────────────────────
 function AppInner() {
   const [dark, setDark] = useDarkMode()
-  const [ready, setReady] = useState(false)
+  const [ready, setReady]   = useState(false)
+  const [page,  setPage]    = useState('gallery') // 'gallery' | 'map'
   const { toast, clearToast } = useToast()
 
   return (
     <PhotoProvider>
       <FilmGrain />
       <Cursor />
-      <ScrollBar />
+      <ScrollBar page={page} />
 
       {!ready && <Loader onComplete={() => setReady(true)} />}
 
       <div className="min-h-screen bg-surface text-ink">
-        <Header ready={ready} dark={dark} onToggleDark={() => setDark(d => !d)} />
-        <main><Gallery /></main>
+        <Header
+          ready={ready}
+          dark={dark}
+          onToggleDark={() => setDark(d => !d)}
+          page={page}
+          onPageChange={setPage}
+        />
+        <main>
+          {page === 'gallery' && <Gallery />}
+          {page === 'map'     && <MapView />}
+        </main>
         <UploadModal />
         <PhotoDetail />
       </div>
 
-      <FloatingAdd ready={ready} />
+      <FloatingAdd ready={ready} page={page} />
 
-      {/* Toast global — éxito / error */}
       {toast && (
-        <Toast
-          key={toast.key}
-          message={toast.message}
-          type={toast.type}
-          onDone={clearToast}
-        />
+        <Toast key={toast.key} message={toast.message} type={toast.type} onDone={clearToast} />
       )}
     </PhotoProvider>
   )
