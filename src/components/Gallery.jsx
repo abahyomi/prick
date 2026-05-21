@@ -268,37 +268,77 @@ function ListRow({ photo, index, onClick }) {
 }
 
 // ─── Tarjeta galería infinita ────────────────────────────────
-// Sin texto, sin márgenes, edge-to-edge. Contacto puro.
+// Edge-to-edge, sin texto. Blur dinámico: max en bordes del viewport, cero en el centro.
 function GaleriaCard({ photo, index, onClick }) {
   const cardRef = useRef(null)
   const imgRef  = useRef(null)
 
   useEffect(() => {
+    const img = imgRef.current
+
+    // Estado inicial: blur máximo, se limpia al entrar en el centro
+    gsap.set(img, { filter: 'grayscale(1) blur(9px)', opacity: 0.35 })
+
+    // Animación de aparición (solo la primera vez)
     gsap.fromTo(cardRef.current,
       { opacity: 0 },
       {
         opacity: 1,
-        duration: 0.6,
+        duration: 0.45,
         ease: 'power2.out',
-        delay: (index % 3) * 0.06,
+        delay: (index % 6) * 0.035,
         scrollTrigger: {
           trigger: cardRef.current,
-          start:   'top 102%',
+          start:   'top 105%',
           toggleActions: 'play none none none',
         },
       }
     )
-    return () => ScrollTrigger.getAll()
-      .filter(t => t.trigger === cardRef.current)
-      .forEach(t => t.kill())
+
+    // Blur continuo según posición en el viewport
+    // Zona central (15%–85% del recorrido): nítido
+    // Bordes (0–15% y 85–100%): blur progresivo hasta 9px
+    const setFilter  = gsap.quickSetter(img, 'filter')
+    const setOpacity = gsap.quickSetter(img, 'opacity')
+
+    const blurST = ScrollTrigger.create({
+      trigger: cardRef.current,
+      start:   'top bottom',
+      end:     'bottom top',
+      onUpdate(self) {
+        const p = self.progress
+        let blur = 0
+        let alpha = 1
+
+        if (p < 0.15) {
+          const t = p / 0.15
+          blur  = (1 - t) * 9
+          alpha = 0.35 + t * 0.65
+        } else if (p > 0.85) {
+          const t = (p - 0.85) / 0.15
+          blur  = t * 9
+          alpha = 1 - t * 0.65
+        }
+
+        setFilter(`grayscale(1) blur(${blur.toFixed(1)}px)`)
+        setOpacity(alpha)
+      },
+    })
+
+    return () => {
+      blurST.kill()
+      ScrollTrigger.getAll()
+        .filter(t => t.trigger === cardRef.current)
+        .forEach(t => t.kill())
+    }
   }, [index])
 
-  function handleEnter() {
-    gsap.to(imgRef.current, { scale: 1.04, duration: 0.6, ease: 'power2.out' })
-  }
-  function handleLeave() {
-    gsap.to(imgRef.current, { scale: 1, duration: 0.6, ease: 'power2.inOut' })
-  }
+  const handleEnter = useCallback(() => {
+    gsap.to(imgRef.current, { scale: 1.04, duration: 0.5, ease: 'power2.out' })
+  }, [])
+  const handleLeave = useCallback(() => {
+    gsap.to(imgRef.current, { scale: 1, duration: 0.5, ease: 'power2.inOut' })
+  }, [])
 
   const onImgLoad = useCallback(e => e.target.classList.add('loaded'), [])
 
@@ -317,8 +357,8 @@ function GaleriaCard({ photo, index, onClick }) {
         alt=""
         loading="lazy"
         onLoad={onImgLoad}
-        className="lazy-fade w-full h-full object-cover grayscale absolute inset-0"
-        style={{ willChange: 'transform' }}
+        className="lazy-fade w-full h-full object-cover absolute inset-0"
+        style={{ willChange: 'transform, filter' }}
       />
     </div>
   )
@@ -400,11 +440,11 @@ export default function Gallery() {
         </div>
       )}
 
-      {/* Vista galería infinita — sin texto, contacto puro, edge-to-edge */}
+      {/* Vista galería infinita — sin texto, edge-to-edge, 6 col en desktop */}
       {view === 'galeria' && (
         <div
           key="galeria"
-          className="view-enter grid grid-cols-2 md:grid-cols-3"
+          className="view-enter grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6"
           style={{ gap: 0 }}
         >
           {photos.map((photo, i) => (
