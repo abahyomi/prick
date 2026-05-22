@@ -21,8 +21,8 @@ html.light {
   --c-ink-rgb:        10, 10, 10;
   --c-ink-dim:        rgba(10,10,10,0.58);
   --c-ink-faint:      rgba(10,10,10,0.10);
-  --shadow-float:     0 6px 32px rgba(0,0,0,0.10);
-  --shadow-float-up:  0 18px 64px rgba(0,0,0,0.18);
+  --shadow-float:     none;
+  --shadow-float-up:  none;
 }
 
 /* ─── Base ───────────────────────────────────────────────── */
