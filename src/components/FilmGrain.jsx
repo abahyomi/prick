@@ -74,9 +74,9 @@ export default function FilmGrain() {
         height:        '100%',
         pointerEvents: 'none',
         zIndex:        9998,
-        opacity:       0.055,
-        // overlay = screen on darks + multiply on lights → grain everywhere
-        mixBlendMode:  'overlay',
+        opacity:       0.07,
+        // screen: añade luminancia sobre oscuros → visible en toda la interfaz
+        mixBlendMode:  'screen',
       }}
     />
   )
