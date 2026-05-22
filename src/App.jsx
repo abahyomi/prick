@@ -6,6 +6,7 @@ import { ToastProvider, useToast }  from './context/ToastContext'
 import Header       from './components/Header'
 import Gallery      from './components/Gallery'
 import MapView      from './components/MapView'
+import TimelineView from './components/TimelineView'
 import UploadModal  from './components/UploadModal'
 import PhotoDetail  from './components/PhotoDetail'
 import Loader       from './components/Loader'
@@ -31,8 +32,8 @@ function FloatingAdd({ ready, page }) {
     )
   }, [ready])
 
-  // No mostrar en el mapa
-  if (page === 'map') return null
+  // No mostrar en mapa ni timeline
+  if (page === 'map' || page === 'timeline') return null
 
   return (
     <button
@@ -102,8 +103,9 @@ function AppInner() {
           onPageChange={setPage}
         />
         <main>
-          {page === 'gallery' && <Gallery />}
-          {page === 'map'     && <MapView />}
+          {page === 'gallery'  && <Gallery />}
+          {page === 'map'      && <MapView />}
+          {page === 'timeline' && <TimelineView />}
         </main>
         <UploadModal />
         <PhotoDetail />

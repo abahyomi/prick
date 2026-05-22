@@ -19,8 +19,9 @@ export default function Header({ ready, dark, onToggleDark, page, onPageChange }
   const count = photos.length.toString().padStart(3, '0')
 
   const NAV_PAGES = [
-    { id: 'gallery', label: 'Archivo' },
-    { id: 'map',     label: 'Mapa'    },
+    { id: 'gallery',  label: 'Archivo' },
+    { id: 'map',      label: 'Mapa'    },
+    { id: 'timeline', label: 'Tiempo'  },
   ]
 
   return (
