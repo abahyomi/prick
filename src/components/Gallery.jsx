@@ -407,11 +407,33 @@ function AddCard({ onClick, tall = true }) {
 export default function Gallery() {
   const { photos, setSelectedPhoto, setUploadModalOpen } = usePhotos()
   const [view, setView] = useState('grid')
+  const [colorized, setColorized] = useState(false)
+  const viewRef = useRef(null)
 
   useEffect(() => {
     const id = setTimeout(() => ScrollTrigger.refresh(), 150)
     return () => clearTimeout(id)
   }, [photos.length, view])
+
+  // Resetear color al cambiar de vista
+  useEffect(() => { setColorized(false) }, [view])
+
+  const handleColorize = useCallback(() => {
+    const imgs = viewRef.current?.querySelectorAll('img.lazy-fade')
+    if (!imgs?.length) return
+    const next = !colorized
+
+    gsap.to(Array.from(imgs), {
+      filter: next ? 'grayscale(0) saturate(1.15) brightness(1.04)' : 'grayscale(1)',
+      duration: 0.72,
+      stagger: {
+        amount: Math.min(imgs.length * 0.11, 1.8),
+        from: 'random',
+      },
+      ease: 'power2.inOut',
+    })
+    setColorized(next)
+  }, [colorized])
 
   if (photos.length === 0) {
     return (
@@ -441,7 +463,33 @@ export default function Gallery() {
         <span className="text-meta" style={{ color: 'var(--c-ink-dim)' }}>
           {photos.length.toString().padStart(3, '0')}
         </span>
-        <div className="flex gap-6">
+        <div className="flex items-center gap-6">
+          {/* Botón colorizar */}
+          <button
+            onClick={handleColorize}
+            className="text-meta transition-all flex items-center gap-1.5"
+            title={colorized ? 'Volver a B&N' : 'Ver en color'}
+            style={{
+              color: colorized ? 'var(--c-ink)' : 'var(--c-ink-dim)',
+              opacity: colorized ? 1 : 0.65,
+            }}
+          >
+            <span
+              style={{
+                display: 'inline-block',
+                width: '0.55rem',
+                height: '0.55rem',
+                borderRadius: '50%',
+                background: colorized
+                  ? 'conic-gradient(#e8604c 0deg, #f5a623 90deg, #4a90d9 180deg, #7ed321 270deg, #e8604c 360deg)'
+                  : 'rgba(var(--c-ink-rgb), 0.35)',
+                transition: 'background 0.4s',
+                flexShrink: 0,
+              }}
+            />
+            {colorized ? 'B&N' : 'Color'}
+          </button>
+
           {VIEWS.map(([m, label]) => (
             <button
               key={m}
@@ -461,6 +509,7 @@ export default function Gallery() {
       {/* Vista cuadrícula */}
       {view === 'grid' && (
         <div
+          ref={viewRef}
           key="grid"
           className="view-enter grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-x-5 gap-y-16 px-8 pb-32 overflow-visible"
         >
@@ -473,7 +522,7 @@ export default function Gallery() {
 
       {/* Vista lista */}
       {view === 'list' && (
-        <div key="list" className="view-enter list-rows px-8 pb-32">
+        <div ref={viewRef} key="list" className="view-enter list-rows px-8 pb-32">
           {photos.map((photo, i) => (
             <ListRow key={photo.id} photo={photo} index={i} onClick={setSelectedPhoto} />
           ))}
@@ -483,6 +532,7 @@ export default function Gallery() {
       {/* Vista galería infinita — sin texto, edge-to-edge, 6 col en desktop */}
       {view === 'galeria' && (
         <div
+          ref={viewRef}
           key="galeria"
           className="view-enter grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6"
           style={{ gap: 0 }}
