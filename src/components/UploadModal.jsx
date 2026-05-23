@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect, useCallback } from 'react'
+import React, { useRef, useState, useEffect, useLayoutEffect, useCallback } from 'react'
 import { gsap } from 'gsap'
 import * as Exifr from 'exifr'
 import { usePhotos } from '../context/PhotoContext'
@@ -102,17 +102,64 @@ export default function UploadModal() {
 
   const overlayRef   = useRef(null)
   const panelRef     = useRef(null)
+  const titleRef     = useRef(null)
   const fileInputRef = useRef(null)
 
-  // Abrir / cerrar con animación
-  useEffect(() => {
+  // Abrir con cascada — useLayoutEffect evita el flash de un frame
+  useLayoutEffect(() => {
     if (!uploadModalOpen) { document.body.style.overflow = ''; return }
     document.body.style.overflow = 'hidden'
-    gsap.fromTo(overlayRef.current, { opacity: 0 }, { opacity: 1, duration: 0.28 })
-    gsap.fromTo(panelRef.current,
-      { y: 56, opacity: 0 },
-      { y: 0,  opacity: 1, duration: 0.48, ease: 'power3.out' }
+
+    const overlay = overlayRef.current
+    const panel   = panelRef.current
+    const title   = titleRef.current
+    if (!overlay || !panel) return
+
+    const sections = Array.from(panel.querySelectorAll('[data-anim]'))
+
+    const tl = gsap.timeline()
+
+    // 1. Backdrop con blur progresivo
+    tl.fromTo(overlay,
+      {
+        opacity: 0,
+        backdropFilter: 'blur(0px)',
+        WebkitBackdropFilter: 'blur(0px)',
+      },
+      {
+        opacity: 1,
+        backdropFilter: 'blur(14px)',
+        WebkitBackdropFilter: 'blur(14px)',
+        duration: 0.55,
+        ease: 'power2.out',
+      },
+      0
     )
+
+    // 2. Panel: sube + escala sutil
+    tl.fromTo(panel,
+      { y: 90, opacity: 0, scale: 0.96 },
+      { y: 0, opacity: 1, scale: 1, duration: 0.78, ease: 'expo.out' },
+      0.05
+    )
+
+    // 3. Título "Nuevo fotograma" con letter-spacing editorial
+    if (title) {
+      tl.fromTo(title,
+        { letterSpacing: '0.55em', opacity: 0 },
+        { letterSpacing: '0.20em', opacity: 1, duration: 0.6, ease: 'power3.out' },
+        0.25
+      )
+    }
+
+    // 4. Secciones internas en cascada
+    if (sections.length) {
+      tl.fromTo(sections,
+        { y: 26, opacity: 0 },
+        { y: 0, opacity: 1, duration: 0.52, stagger: 0.07, ease: 'power3.out' },
+        0.3
+      )
+    }
   }, [uploadModalOpen])
 
   // Cerrar con Escape
@@ -124,8 +171,17 @@ export default function UploadModal() {
   }, [uploadModalOpen])
 
   function close() {
-    gsap.to(panelRef.current, {
-      y: 40, opacity: 0, duration: 0.3, ease: 'power2.in',
+    const overlay = overlayRef.current
+    const panel   = panelRef.current
+    if (!overlay || !panel) {
+      setUploadModalOpen(false)
+      setForm(EMPTY_FORM); setPreviewUrl(null); setFile(null)
+      setLocalError(null); setSubmitting(false)
+      return
+    }
+    const sections = Array.from(panel.querySelectorAll('[data-anim]'))
+
+    const tl = gsap.timeline({
       onComplete: () => {
         setUploadModalOpen(false)
         setForm(EMPTY_FORM)
@@ -135,7 +191,28 @@ export default function UploadModal() {
         setSubmitting(false)
       },
     })
-    gsap.to(overlayRef.current, { opacity: 0, duration: 0.25 })
+
+    // 1. Secciones se contraen rápido
+    if (sections.length) {
+      tl.to(sections, {
+        y: 10, opacity: 0,
+        duration: 0.2, stagger: 0.02, ease: 'power2.in',
+      }, 0)
+    }
+
+    // 2. Panel baja + escala
+    tl.to(panel, {
+      y: 56, opacity: 0, scale: 0.97,
+      duration: 0.36, ease: 'power2.in',
+    }, 0.08)
+
+    // 3. Backdrop pierde blur y se desvanece
+    tl.to(overlay, {
+      opacity: 0,
+      backdropFilter: 'blur(0px)',
+      WebkitBackdropFilter: 'blur(0px)',
+      duration: 0.34, ease: 'power2.in',
+    }, 0.1)
   }
 
   const handleFile = useCallback(async (f) => {
@@ -196,20 +273,30 @@ export default function UploadModal() {
     <div
       ref={overlayRef}
       className="fixed inset-0 z-[2100] flex items-end md:items-center justify-center"
-      style={{ opacity: 0, backgroundColor: 'rgba(0,0,0,0.92)' }}
+      style={{
+        opacity:              0,
+        backgroundColor:      'rgba(0,0,0,0.72)',
+        backdropFilter:       'blur(0px)',
+        WebkitBackdropFilter: 'blur(0px)',
+      }}
       onClick={(e) => e.target === overlayRef.current && close()}
     >
       <div
         ref={panelRef}
         className="bg-surface w-full md:max-w-2xl max-h-[90vh] overflow-y-auto no-scrollbar"
-        style={{ opacity: 0 }}
+        style={{ opacity: 0, willChange: 'transform' }}
       >
         {/* Cabecera fija */}
         <div
+          data-anim="header"
           className="flex items-center justify-between px-7 py-5 sticky top-0 bg-surface z-10"
           style={{ borderBottom: '1px solid var(--c-ink-faint)' }}
         >
-          <span className="text-meta" style={{ color: 'var(--c-ink-dim)' }}>
+          <span
+            ref={titleRef}
+            className="text-meta"
+            style={{ color: 'var(--c-ink-dim)', display: 'inline-block' }}
+          >
             Nuevo fotograma
           </span>
           <button
@@ -225,6 +312,7 @@ export default function UploadModal() {
         <form onSubmit={handleSubmit} className="px-7 py-7 space-y-7">
           {/* Zona de arrastre */}
           <div
+            data-anim="dropzone"
             className="relative transition-all overflow-hidden"
             style={{
               aspectRatio:  previewUrl ? 'auto' : '16/6',
@@ -284,7 +372,7 @@ export default function UploadModal() {
           )}
 
           {/* Campos en dos columnas */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+          <div data-anim="fields" className="grid grid-cols-1 sm:grid-cols-2 gap-5">
             <Campo label="Fecha">
               <input type="date" value={form.date} onChange={set('date')} className={campo} />
             </Campo>
@@ -312,15 +400,17 @@ export default function UploadModal() {
             </Campo>
           </div>
 
-          <Campo label="Pensamiento">
-            <textarea
-              value={form.description}
-              onChange={set('description')}
-              rows={3}
-              placeholder="¿Qué pensabas en ese instante?"
-              className={`${campo} resize-none`}
-            />
-          </Campo>
+          <div data-anim="desc">
+            <Campo label="Pensamiento">
+              <textarea
+                value={form.description}
+                onChange={set('description')}
+                rows={3}
+                placeholder="¿Qué pensabas en ese instante?"
+                className={`${campo} resize-none`}
+              />
+            </Campo>
+          </div>
 
           {/* Error inline prominente */}
           {localError && (
@@ -334,6 +424,7 @@ export default function UploadModal() {
 
           {/* Acciones */}
           <div
+            data-anim="actions"
             className="flex items-center justify-between pt-5"
             style={{ borderTop: '1px solid var(--c-ink-faint)' }}
           >
