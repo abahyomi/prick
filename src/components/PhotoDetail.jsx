@@ -3,6 +3,7 @@ import { gsap } from 'gsap'
 import { usePhotos } from '../context/PhotoContext'
 import { usePhotoUpload } from '../hooks/usePhotoUpload'
 import { useToast } from '../context/ToastContext'
+import { consumeLastClickRect } from '../utils/photoTransition'
 import CropEditor, { dataUrlToFile } from './CropEditor'
 
 // ── Hint de swipe (primera visita en móvil) ────────────────
@@ -94,29 +95,68 @@ export default function PhotoDetail() {
     setImgPreview(null)
     document.body.style.overflow = 'hidden'
 
-    const tl = gsap.timeline({ defaults: { ease: 'power3.out' } })
-    tl.fromTo(overlayRef.current,
-        { opacity: 0 },
-        { opacity: 1, duration: 0.32 }
-      )
-      .fromTo(imgRef.current,
-        { scale: 0.97, opacity: 0, filter: 'blur(10px)' },
-        { scale: 1, opacity: 1, filter: 'blur(0px)', duration: 0.72 },
-        '-=0.1'
-      )
-      .fromTo(contentRef.current,
-        { x: 20, opacity: 0 },
-        { x: 0, opacity: 1, duration: 0.52 },
-        '-=0.48'
-      )
-      .fromTo(
-        metaRef.current?.children ? Array.from(metaRef.current.children) : [],
-        { opacity: 0, y: 7 },
-        { opacity: 1, y: 0, stagger: 0.05, duration: 0.38 },
-        '-=0.32'
-      )
+    // Magic-move: si la foto viene de un click en la grilla,
+    // anima desde su posición exacta hasta el detalle.
+    const sourceRect = consumeLastClickRect()
+    const hasSource  = sourceRect && sourceRect.photoId === selectedPhoto.id
 
-    return () => { document.body.style.overflow = '' }
+    // Esperar a que el DOM monte para medir el rect destino
+    const id = requestAnimationFrame(() => {
+      const img = imgRef.current
+      if (!img) return
+
+      const tl = gsap.timeline({ defaults: { ease: 'power3.out' } })
+      tl.fromTo(overlayRef.current,
+          { opacity: 0 },
+          { opacity: 1, duration: 0.32 }
+        )
+
+      if (hasSource) {
+        const target = img.getBoundingClientRect()
+        if (target.width > 0 && target.height > 0) {
+          const sx    = sourceRect.w / target.width
+          const sy    = sourceRect.h / target.height
+          const scale = Math.min(sx, sy)
+          const dx    = (sourceRect.x + sourceRect.w / 2) - (target.left + target.width  / 2)
+          const dy    = (sourceRect.y + sourceRect.h / 2) - (target.top  + target.height / 2)
+
+          tl.fromTo(img,
+            { x: dx, y: dy, scale, opacity: 1, filter: 'blur(0px)', transformOrigin: 'center center' },
+            { x: 0, y: 0, scale: 1, duration: 0.78, ease: 'expo.inOut' },
+            '<+0.02'
+          )
+        } else {
+          tl.fromTo(img,
+            { scale: 0.97, opacity: 0, filter: 'blur(10px)' },
+            { scale: 1, opacity: 1, filter: 'blur(0px)', duration: 0.72 },
+            '-=0.1'
+          )
+        }
+      } else {
+        tl.fromTo(img,
+          { scale: 0.97, opacity: 0, filter: 'blur(10px)' },
+          { scale: 1, opacity: 1, filter: 'blur(0px)', duration: 0.72 },
+          '-=0.1'
+        )
+      }
+
+      tl.fromTo(contentRef.current,
+          { x: 20, opacity: 0 },
+          { x: 0, opacity: 1, duration: 0.52 },
+          '-=0.38'
+        )
+        .fromTo(
+          metaRef.current?.children ? Array.from(metaRef.current.children) : [],
+          { opacity: 0, y: 7 },
+          { opacity: 1, y: 0, stagger: 0.05, duration: 0.38 },
+          '-=0.32'
+        )
+    })
+
+    return () => {
+      cancelAnimationFrame(id)
+      document.body.style.overflow = ''
+    }
   }, [selectedPhoto?.id])
 
   // ── Cerrar con Escape ───────────────────────────────────────

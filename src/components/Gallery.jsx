@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react'
 import { gsap } from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { usePhotos } from '../context/PhotoContext'
+import { setLastClickRect } from '../utils/photoTransition'
 
 gsap.registerPlugin(ScrollTrigger)
 
@@ -86,6 +87,11 @@ function GridCard({ photo, index, onClick }) {
   }, [])
 
   const handleClick = useCallback(async () => {
+    // Registrar rect de la foto para magic-move en PhotoDetail
+    if (imgRef.current) {
+      const r = imgRef.current.getBoundingClientRect()
+      setLastClickRect({ x: r.left, y: r.top, w: r.width, h: r.height, photoId: photo.id })
+    }
     await gsap.to(cardRef.current, {
       scale: 0.95, duration: 0.1, ease: 'power2.in',
       yoyo: true, repeat: 1,
@@ -213,11 +219,19 @@ function ListRow({ photo, index, onClick }) {
     day: '2-digit', month: 'long', year: 'numeric',
   })
 
+  const handleRowClick = useCallback(() => {
+    if (imgRef.current) {
+      const r = imgRef.current.getBoundingClientRect()
+      setLastClickRect({ x: r.left, y: r.top, w: r.width, h: r.height, photoId: photo.id })
+    }
+    onClick(photo)
+  }, [photo, onClick])
+
   return (
     <div
       ref={rowRef}
       className="flex items-center gap-4 md:gap-6 py-3 md:py-4"
-      onClick={() => onClick(photo)}
+      onClick={handleRowClick}
       onMouseEnter={handleEnter}
       onMouseLeave={handleLeave}
     >
@@ -347,12 +361,20 @@ function GaleriaCard({ photo, index, onClick, colorizedRef }) {
 
   const onImgLoad = useCallback(e => e.target.classList.add('loaded'), [])
 
+  const handleGaleriaClick = useCallback(() => {
+    if (imgRef.current) {
+      const r = imgRef.current.getBoundingClientRect()
+      setLastClickRect({ x: r.left, y: r.top, w: r.width, h: r.height, photoId: photo.id })
+    }
+    onClick(photo)
+  }, [photo, onClick])
+
   return (
     <div
       ref={cardRef}
       className="aspect-[4/5] overflow-hidden relative"
       style={{ opacity: 0 }}
-      onClick={() => onClick(photo)}
+      onClick={handleGaleriaClick}
       onMouseEnter={handleEnter}
       onMouseLeave={handleLeave}
     >
