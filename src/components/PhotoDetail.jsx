@@ -1,10 +1,29 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react'
+import React, { useEffect, useLayoutEffect, useRef, useState, useCallback } from 'react'
 import { gsap } from 'gsap'
 import { usePhotos } from '../context/PhotoContext'
 import { usePhotoUpload } from '../hooks/usePhotoUpload'
 import { useToast } from '../context/ToastContext'
 import { consumeLastClickRect } from '../utils/photoTransition'
 import CropEditor, { dataUrlToFile } from './CropEditor'
+
+// ─── Rect visual real de un <img> con object-contain ──────────
+// El elemento puede ser más grande que el contenido (letterbox).
+// Esta función devuelve el área que ocupa la imagen real, no la caja.
+function getVisualRect(img) {
+  const r = img.getBoundingClientRect()
+  if (!img.naturalWidth || !img.naturalHeight) {
+    return { x: r.left, y: r.top, w: r.width, h: r.height }
+  }
+  const aNatural = img.naturalWidth / img.naturalHeight
+  const aElem    = r.width / r.height
+  if (aNatural > aElem) {
+    const h = r.width / aNatural
+    return { x: r.left, y: r.top + (r.height - h) / 2, w: r.width, h }
+  } else {
+    const w = r.height * aNatural
+    return { x: r.left + (r.width - w) / 2, y: r.top, w, h: r.height }
+  }
+}
 
 // ── Hint de swipe (primera visita en móvil) ────────────────
 function SwipeHint({ onDone }) {
@@ -164,10 +183,11 @@ export default function PhotoDetail() {
   }, [selectedPhoto?.id])
 
   // ── Apertura del zoom (lightbox) ────────────────────────────
+  // Guarda el rect VISUAL (no del elemento) para que la animación
+  // arranque desde el área exacta que ocupa el contenido de la foto.
   const openZoom = useCallback(() => {
     if (editing || !imgRef.current) return
-    const r = imgRef.current.getBoundingClientRect()
-    zoomSourceRef.current = { x: r.left, y: r.top, w: r.width, h: r.height }
+    zoomSourceRef.current = getVisualRect(imgRef.current)
     setZoomed(true)
   }, [editing])
 
@@ -177,41 +197,85 @@ export default function PhotoDetail() {
     const ov  = zoomOverlayRef.current
     if (!src || !img || !ov) { setZoomed(false); return }
 
-    const target = img.getBoundingClientRect()
-    if (target.width < 1 || target.height < 1) { setZoomed(false); return }
-    const sx = src.w / target.width
-    const dx = (src.x + src.w / 2) - (target.left + target.width  / 2)
-    const dy = (src.y + src.h / 2) - (target.top  + target.height / 2)
+    const t = img.getBoundingClientRect()
+    if (t.width < 1 || t.height < 1) { setZoomed(false); return }
 
-    gsap.to(img, { x: dx, y: dy, scale: sx, duration: 0.55, ease: 'expo.inOut' })
-    gsap.to(ov,  {
-      opacity: 0, duration: 0.42, delay: 0.08,
-      onComplete: () => setZoomed(false),
-    })
+    // Aspectos iguales → un solo factor de escala
+    const scale = Math.min(src.w / t.width, src.h / t.height)
+    const dx    = (src.x + src.w / 2) - (t.left + t.width  / 2)
+    const dy    = (src.y + src.h / 2) - (t.top  + t.height / 2)
+
+    const tl = gsap.timeline({ onComplete: () => setZoomed(false) })
+    tl.to(img, {
+      x: dx, y: dy, scale,
+      duration: 0.6, ease: 'power3.inOut',
+    }, 0)
+    .to(ov, {
+      opacity: 0,
+      duration: 0.45, ease: 'power2.in',
+    }, 0.18)
   }, [])
 
   // Animación al abrir el zoom
-  useEffect(() => {
+  // useLayoutEffect: ejecuta SÍNCRONICAMENTE antes del paint → no hay
+  // frame donde la foto aparezca a tamaño natural antes de transformarse.
+  useLayoutEffect(() => {
     if (!zoomed) return
-    const id = requestAnimationFrame(() => {
-      const src = zoomSourceRef.current
-      const img = zoomImgRef.current
-      const ov  = zoomOverlayRef.current
-      if (!src || !img || !ov) return
-      const target = img.getBoundingClientRect()
-      if (target.width < 1 || target.height < 1) return
+    const src = zoomSourceRef.current
+    const img = zoomImgRef.current
+    const ov  = zoomOverlayRef.current
+    if (!src || !img || !ov) return
 
-      const sx = src.w / target.width
-      const dx = (src.x + src.w / 2) - (target.left + target.width  / 2)
-      const dy = (src.y + src.h / 2) - (target.top  + target.height / 2)
+    let cancelled = false
+    let cleanup   = null
 
-      gsap.fromTo(ov, { opacity: 0 }, { opacity: 1, duration: 0.35, ease: 'power2.out' })
-      gsap.fromTo(img,
-        { x: dx, y: dy, scale: sx },
-        { x: 0, y: 0, scale: 1, duration: 0.78, ease: 'expo.inOut' }
-      )
-    })
-    return () => cancelAnimationFrame(id)
+    const run = () => {
+      if (cancelled) return
+
+      // Esperar a que la imagen tenga dimensiones naturales para
+      // que el rect destino sea exacto (en caché es síncrono).
+      if (!img.complete || !img.naturalWidth) {
+        const onLoad = () => { if (!cancelled) run() }
+        img.addEventListener('load', onLoad, { once: true })
+        cleanup = () => img.removeEventListener('load', onLoad)
+        return
+      }
+
+      const t = img.getBoundingClientRect()
+      if (t.width < 1 || t.height < 1) {
+        const id = requestAnimationFrame(run)
+        cleanup = () => cancelAnimationFrame(id)
+        return
+      }
+
+      const scale = Math.min(src.w / t.width, src.h / t.height)
+      const dx    = (src.x + src.w / 2) - (t.left + t.width  / 2)
+      const dy    = (src.y + src.h / 2) - (t.top  + t.height / 2)
+
+      // Posicionar la imagen en el origen ANTES del paint
+      gsap.set(img, {
+        x: dx, y: dy, scale,
+        transformOrigin: 'center center',
+        force3D: true,
+      })
+
+      // Línea de tiempo única → ambos elementos sincronizados
+      const tl = gsap.timeline()
+      tl.to(ov, {
+        opacity: 1,
+        duration: 0.5, ease: 'power2.out',
+      }, 0)
+      .to(img, {
+        x: 0, y: 0, scale: 1,
+        duration: 0.78, ease: 'power3.out',
+      }, 0)
+    }
+
+    run()
+    return () => {
+      cancelled = true
+      if (cleanup) cleanup()
+    }
   }, [zoomed])
 
   // ── Cerrar con Escape ───────────────────────────────────────
