@@ -38,6 +38,7 @@ export default function PhotoDetail() {
   const [showMediaMenu, setShowMediaMenu] = useState(false)
   const [showCrop,      setShowCrop]     = useState(false)
   const [showHint,      setShowHint]     = useState(false)
+  const [zoomed,        setZoomed]       = useState(false)
 
   const overlayRef     = useRef(null)
   const imgRef         = useRef(null)
@@ -46,6 +47,9 @@ export default function PhotoDetail() {
   const fileInputRef   = useRef(null)
   const cameraInputRef = useRef(null)
   const touchXRef      = useRef(null)
+  const zoomSourceRef  = useRef(null)
+  const zoomOverlayRef = useRef(null)
+  const zoomImgRef     = useRef(null)
 
   // Índice y navegación entre fotos
   const currentIdx = photos.findIndex(p => p.id === selectedPhoto?.id)
@@ -159,13 +163,68 @@ export default function PhotoDetail() {
     }
   }, [selectedPhoto?.id])
 
+  // ── Apertura del zoom (lightbox) ────────────────────────────
+  const openZoom = useCallback(() => {
+    if (editing || !imgRef.current) return
+    const r = imgRef.current.getBoundingClientRect()
+    zoomSourceRef.current = { x: r.left, y: r.top, w: r.width, h: r.height }
+    setZoomed(true)
+  }, [editing])
+
+  const closeZoom = useCallback(() => {
+    const src = zoomSourceRef.current
+    const img = zoomImgRef.current
+    const ov  = zoomOverlayRef.current
+    if (!src || !img || !ov) { setZoomed(false); return }
+
+    const target = img.getBoundingClientRect()
+    if (target.width < 1 || target.height < 1) { setZoomed(false); return }
+    const sx = src.w / target.width
+    const dx = (src.x + src.w / 2) - (target.left + target.width  / 2)
+    const dy = (src.y + src.h / 2) - (target.top  + target.height / 2)
+
+    gsap.to(img, { x: dx, y: dy, scale: sx, duration: 0.55, ease: 'expo.inOut' })
+    gsap.to(ov,  {
+      opacity: 0, duration: 0.42, delay: 0.08,
+      onComplete: () => setZoomed(false),
+    })
+  }, [])
+
+  // Animación al abrir el zoom
+  useEffect(() => {
+    if (!zoomed) return
+    const id = requestAnimationFrame(() => {
+      const src = zoomSourceRef.current
+      const img = zoomImgRef.current
+      const ov  = zoomOverlayRef.current
+      if (!src || !img || !ov) return
+      const target = img.getBoundingClientRect()
+      if (target.width < 1 || target.height < 1) return
+
+      const sx = src.w / target.width
+      const dx = (src.x + src.w / 2) - (target.left + target.width  / 2)
+      const dy = (src.y + src.h / 2) - (target.top  + target.height / 2)
+
+      gsap.fromTo(ov, { opacity: 0 }, { opacity: 1, duration: 0.35, ease: 'power2.out' })
+      gsap.fromTo(img,
+        { x: dx, y: dy, scale: sx },
+        { x: 0, y: 0, scale: 1, duration: 0.78, ease: 'expo.inOut' }
+      )
+    })
+    return () => cancelAnimationFrame(id)
+  }, [zoomed])
+
   // ── Cerrar con Escape ───────────────────────────────────────
   useEffect(() => {
     if (!selectedPhoto) return
-    const onKey = (e) => { if (e.key === 'Escape' && !editing) close() }
+    const onKey = (e) => {
+      if (e.key !== 'Escape') return
+      if (zoomed) { closeZoom(); return }
+      if (!editing) close()
+    }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [selectedPhoto, editing])
+  }, [selectedPhoto, editing, zoomed, closeZoom])
 
   const close = useCallback(() => {
     gsap.to(overlayRef.current, {
@@ -378,6 +437,8 @@ export default function PhotoDetail() {
             src={currentImgSrc}
             alt={selectedPhoto.location}
             onLoad={onImgLoad}
+            onClick={editing ? undefined : openZoom}
+            data-cursor={editing ? '' : 'Ampliar ↗'}
             className="lazy-fade w-full h-full object-contain grayscale max-h-[85vh]"
             style={{ opacity: 0 }}
           />
@@ -604,6 +665,78 @@ export default function PhotoDetail() {
         </div>
       </div>
     </div>
+
+    {/* Zoom lightbox — foto en grande sobre toda la web */}
+    {zoomed && (
+      <div
+        ref={zoomOverlayRef}
+        onClick={closeZoom}
+        style={{
+          position:        'fixed',
+          inset:           0,
+          zIndex:          2500,
+          backgroundColor: 'rgba(0,0,0,0.94)',
+          backdropFilter:  'blur(6px)',
+          WebkitBackdropFilter: 'blur(6px)',
+          display:         'flex',
+          alignItems:      'center',
+          justifyContent:  'center',
+          opacity:         0,
+          willChange:      'opacity',
+        }}
+      >
+        <img
+          ref={zoomImgRef}
+          src={currentImgSrc}
+          alt={selectedPhoto.location}
+          data-cursor="Cerrar ×"
+          className="grayscale"
+          loading="eager"
+          style={{
+            maxWidth:   '92vw',
+            maxHeight:  '92vh',
+            display:    'block',
+            willChange: 'transform',
+            userSelect: 'none',
+          }}
+        />
+
+        {/* Cerrar */}
+        <button
+          onClick={(e) => { e.stopPropagation(); closeZoom() }}
+          aria-label="Cerrar"
+          className="text-meta transition-opacity hover:opacity-100"
+          style={{
+            position: 'absolute',
+            top:      20,
+            right:    24,
+            color:    'rgba(255,255,255,0.55)',
+            fontSize: '1.2rem',
+            lineHeight: 1,
+            padding:  '8px 10px',
+            zIndex:   2,
+          }}
+        >
+          ✕
+        </button>
+
+        {/* Hint inferior */}
+        <p
+          className="text-meta"
+          style={{
+            position: 'absolute',
+            bottom:   24,
+            left:     '50%',
+            transform: 'translateX(-50%)',
+            color:    'rgba(255,255,255,0.32)',
+            pointerEvents: 'none',
+            letterSpacing: '0.22em',
+          }}
+        >
+          ESC o click para cerrar
+        </p>
+      </div>
+    )}
 
     {/* Editor de recorte — pantalla completa encima de todo */}
     {showCrop && (
