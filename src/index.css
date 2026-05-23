@@ -157,9 +157,9 @@ img.lazy-fade.loaded {
 .print-layout { display: none; }
 
 @media print {
-  /* Ocultar toda la UI */
-  body > #root > * { display: none !important; }
-  .print-layout    { display: block !important; }
+  /* Ocultar toda la UI excepto el layout de impresión */
+  body > #root > *:not(.print-layout) { display: none !important; }
+  body > #root > .print-layout        { display: block !important; }
 
   @page {
     margin: 1.8cm 1.4cm;

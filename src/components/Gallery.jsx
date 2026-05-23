@@ -267,17 +267,22 @@ function ListRow({ photo, index, onClick }) {
   )
 }
 
+// ─── Filtros base — color/B&N ──────────────────────────────
+const F_COLOR = 'grayscale(0) saturate(1.15) brightness(1.04)'
+const F_BW    = 'grayscale(1)'
+
 // ─── Tarjeta galería infinita ────────────────────────────────
 // Edge-to-edge, sin texto. Blur dinámico: max en bordes del viewport, cero en el centro.
-function GaleriaCard({ photo, index, onClick }) {
+function GaleriaCard({ photo, index, onClick, colorizedRef }) {
   const cardRef = useRef(null)
   const imgRef  = useRef(null)
 
   useEffect(() => {
     const img = imgRef.current
+    const colorBase = () => (colorizedRef?.current ? F_COLOR : F_BW)
 
     // Estado inicial: blur máximo, se limpia al entrar en el centro
-    gsap.set(img, { filter: 'grayscale(1) blur(9px)', opacity: 0.35 })
+    gsap.set(img, { filter: `${colorBase()} blur(9px)`, opacity: 0.35 })
 
     // Animación de aparición (solo la primera vez)
     gsap.fromTo(cardRef.current,
@@ -320,7 +325,7 @@ function GaleriaCard({ photo, index, onClick }) {
           alpha = 1 - t * 0.65
         }
 
-        setFilter(`grayscale(1) blur(${blur.toFixed(1)}px)`)
+        setFilter(`${colorBase()} blur(${blur.toFixed(1)}px)`)
         setOpacity(alpha)
       },
     })
@@ -408,6 +413,7 @@ export default function Gallery() {
   const { photos, setSelectedPhoto, setUploadModalOpen } = usePhotos()
   const [view, setView] = useState('grid')
   const [colorized, setColorized] = useState(false)
+  const colorizedRef = useRef(false)
   const viewRef = useRef(null)
 
   useEffect(() => {
@@ -416,15 +422,21 @@ export default function Gallery() {
   }, [photos.length, view])
 
   // Resetear color al cambiar de vista
-  useEffect(() => { setColorized(false) }, [view])
+  useEffect(() => {
+    setColorized(false)
+    colorizedRef.current = false
+  }, [view])
 
   const handleColorize = useCallback(() => {
     const imgs = viewRef.current?.querySelectorAll('img.lazy-fade')
     if (!imgs?.length) return
     const next = !colorized
 
+    // Sincrónico: el scroll-trigger de Galería lo leerá en el siguiente frame
+    colorizedRef.current = next
+
     gsap.to(Array.from(imgs), {
-      filter: next ? 'grayscale(0) saturate(1.15) brightness(1.04)' : 'grayscale(1)',
+      filter: next ? F_COLOR : F_BW,
       duration: 0.72,
       stagger: {
         amount: Math.min(imgs.length * 0.11, 1.8),
@@ -538,7 +550,13 @@ export default function Gallery() {
           style={{ gap: 0 }}
         >
           {photos.map((photo, i) => (
-            <GaleriaCard key={photo.id} photo={photo} index={i} onClick={setSelectedPhoto} />
+            <GaleriaCard
+              key={photo.id}
+              photo={photo}
+              index={i}
+              onClick={setSelectedPhoto}
+              colorizedRef={colorizedRef}
+            />
           ))}
           {/* Última celda: añadir foto */}
           <div
