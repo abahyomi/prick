@@ -414,7 +414,10 @@ export default function Gallery() {
   const [view, setView] = useState('grid')
   const [colorized, setColorized] = useState(false)
   const colorizedRef = useRef(false)
-  const viewRef = useRef(null)
+  const viewRef      = useRef(null)
+  const viewNavRef   = useRef(null)
+  const viewIndRef   = useRef(null)
+  const viewIndInit  = useRef(false)
 
   useEffect(() => {
     const id = setTimeout(() => ScrollTrigger.refresh(), 150)
@@ -425,6 +428,30 @@ export default function Gallery() {
   useEffect(() => {
     setColorized(false)
     colorizedRef.current = false
+  }, [view])
+
+  // Indicador deslizante en las vistas (Cuadrícula/Lista/Galería)
+  useEffect(() => {
+    if (!viewNavRef.current || !viewIndRef.current) return
+    const move = () => {
+      const active = viewNavRef.current.querySelector(`[data-view="${view}"]`)
+      if (!active) return
+      const r  = active.getBoundingClientRect()
+      const nr = viewNavRef.current.getBoundingClientRect()
+      if (!viewIndInit.current) {
+        gsap.set(viewIndRef.current, { x: r.left - nr.left, width: r.width, opacity: 0 })
+        gsap.to(viewIndRef.current,  { opacity: 1, duration: 0.4, delay: 0.2 })
+        viewIndInit.current = true
+      } else {
+        gsap.to(viewIndRef.current, {
+          x: r.left - nr.left, width: r.width,
+          duration: 0.5, ease: 'power3.out',
+        })
+      }
+    }
+    move()
+    window.addEventListener('resize', move)
+    return () => window.removeEventListener('resize', move)
   }, [view])
 
   const handleColorize = useCallback(() => {
@@ -502,19 +529,38 @@ export default function Gallery() {
             {colorized ? 'B&N' : 'Color'}
           </button>
 
-          {VIEWS.map(([m, label]) => (
-            <button
-              key={m}
-              onClick={() => setView(m)}
-              className="text-meta transition-all"
+          {/* Vistas con indicador deslizante */}
+          <div ref={viewNavRef} className="flex items-center gap-6 relative" style={{ paddingBottom: 6 }}>
+            <span
+              ref={viewIndRef}
+              aria-hidden="true"
               style={{
-                color:   view === m ? 'var(--c-ink)' : 'var(--c-ink-dim)',
-                opacity: view === m ? 1 : 0.65,
+                position:        'absolute',
+                bottom:          0,
+                left:            0,
+                height:          1,
+                backgroundColor: 'var(--c-ink)',
+                pointerEvents:   'none',
+                willChange:      'transform, width',
               }}
-            >
-              {label}
-            </button>
-          ))}
+            />
+            {VIEWS.map(([m, label]) => (
+              <button
+                key={m}
+                data-view={m}
+                onClick={() => setView(m)}
+                className="text-meta transition-all"
+                style={{
+                  color:   view === m ? 'var(--c-ink)' : 'var(--c-ink-dim)',
+                  opacity: view === m ? 1 : 0.65,
+                }}
+                onMouseEnter={e => { if (view !== m) e.currentTarget.style.color = 'rgba(var(--c-ink-rgb), 0.7)' }}
+                onMouseLeave={e => { if (view !== m) e.currentTarget.style.color = 'var(--c-ink-dim)' }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 

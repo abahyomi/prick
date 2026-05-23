@@ -1,13 +1,43 @@
-import React, { useEffect, useRef } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { gsap } from 'gsap'
 import { usePhotos } from '../context/PhotoContext'
 
+// ─── Contador animado de 3 dígitos ─────────────────────────
+function AnimatedCount({ value }) {
+  const ref     = useRef(null)
+  const prevRef = useRef(value)
+
+  useEffect(() => {
+    const from = prevRef.current
+    const to   = value
+    if (from === to || !ref.current) return
+    const obj = { v: from }
+    const tw  = gsap.to(obj, {
+      v: to,
+      duration: 0.8,
+      ease: 'power3.out',
+      onUpdate: () => {
+        if (ref.current) ref.current.textContent = String(Math.round(obj.v)).padStart(3, '0')
+      },
+    })
+    prevRef.current = to
+    return () => tw.kill()
+  }, [value])
+
+  return <span ref={ref}>{String(value).padStart(3, '0')}</span>
+}
+
 export default function Header({ ready, dark, onToggleDark, page, onPageChange }) {
   const { setUploadModalOpen, photos } = usePhotos()
-  const titleRef = useRef(null)
-  const metaRef  = useRef(null)
-  const navRef   = useRef(null)
+  const titleRef     = useRef(null)
+  const titleWrapRef = useRef(null)
+  const metaRef      = useRef(null)
+  const navRef       = useRef(null)
+  const pageNavRef   = useRef(null)
+  const indicatorRef = useRef(null)
+  const indicatorInitRef = useRef(false)
 
+  // ── Entrada animada ───────────────────────────────────────
   useEffect(() => {
     if (!ready) return
     const tl = gsap.timeline({ defaults: { ease: 'power3.out' } })
@@ -16,7 +46,56 @@ export default function Header({ ready, dark, onToggleDark, page, onPageChange }
       .fromTo(metaRef.current,  { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.6 }, '-=0.3')
   }, [ready])
 
-  const count = photos.length.toString().padStart(3, '0')
+  // ── Parallax sutil del título PRICK siguiendo el cursor ──
+  useEffect(() => {
+    if (!ready) return
+    if (!window.matchMedia('(hover: hover) and (pointer: fine)').matches) return
+    const el = titleRef.current
+    if (!el) return
+
+    const onMove = (e) => {
+      const w = window.innerWidth, h = window.innerHeight
+      const x = (e.clientX / w - 0.5) * 2  // -1..1
+      const y = (e.clientY / h - 0.5) * 2
+      gsap.to(el, {
+        x:           x * -10,
+        y:           y * -5,
+        skewX:       x * 0.6,
+        duration:    0.8,
+        ease:        'power2.out',
+        overwrite:   'auto',
+      })
+    }
+    window.addEventListener('mousemove', onMove)
+    return () => window.removeEventListener('mousemove', onMove)
+  }, [ready])
+
+  // ── Indicador deslizante en la nav de páginas ────────────
+  useEffect(() => {
+    if (!ready) return
+    if (!pageNavRef.current || !indicatorRef.current) return
+
+    const move = () => {
+      const active = pageNavRef.current.querySelector(`[data-page="${page}"]`)
+      if (!active) return
+      const r  = active.getBoundingClientRect()
+      const nr = pageNavRef.current.getBoundingClientRect()
+      if (!indicatorInitRef.current) {
+        gsap.set(indicatorRef.current, { x: r.left - nr.left, width: r.width, opacity: 0 })
+        gsap.to(indicatorRef.current,  { opacity: 1, duration: 0.4, delay: 0.4 })
+        indicatorInitRef.current = true
+      } else {
+        gsap.to(indicatorRef.current, {
+          x: r.left - nr.left, width: r.width,
+          duration: 0.55, ease: 'power3.out',
+        })
+      }
+    }
+
+    move()
+    window.addEventListener('resize', move)
+    return () => window.removeEventListener('resize', move)
+  }, [page, ready])
 
   const NAV_PAGES = [
     { id: 'gallery',  label: 'Archivo' },
@@ -35,7 +114,7 @@ export default function Header({ ready, dark, onToggleDark, page, onPageChange }
 
         <nav className="flex items-center gap-8">
           <span className="text-meta" style={{ color: 'var(--c-ink-dim)' }}>
-            {count}&nbsp;fotogramas
+            <AnimatedCount value={photos.length} />&nbsp;fotogramas
           </span>
 
           {/* Toggle tema */}
@@ -53,6 +132,7 @@ export default function Header({ ready, dark, onToggleDark, page, onPageChange }
           {/* CTA añadir */}
           <button
             onClick={() => setUploadModalOpen(true)}
+            data-magnetic
             className="text-meta transition-opacity"
             style={{ backgroundColor: 'var(--c-ink)', color: 'var(--c-surface)', padding: '0.45rem 1.1rem', letterSpacing: '0.20em' }}
             onMouseEnter={e => (e.currentTarget.style.opacity = '0.72')}
@@ -64,11 +144,11 @@ export default function Header({ ready, dark, onToggleDark, page, onPageChange }
       </div>
 
       {/* Título */}
-      <div className="px-8 pt-4 pb-2 overflow-hidden">
+      <div ref={titleWrapRef} className="px-8 pt-4 pb-2 overflow-hidden">
         <h1
           ref={titleRef}
           className="font-bold leading-none select-none"
-          style={{ fontSize: 'clamp(4.5rem, 17vw, 17rem)', letterSpacing: '-0.045em', color: 'var(--c-ink)', opacity: 0 }}
+          style={{ fontSize: 'clamp(4.5rem, 17vw, 17rem)', letterSpacing: '-0.045em', color: 'var(--c-ink)', opacity: 0, willChange: 'transform' }}
         >
           PRICK
         </h1>
@@ -83,19 +163,36 @@ export default function Header({ ready, dark, onToggleDark, page, onPageChange }
           Abahyomi &amp; Alexandra
         </p>
 
-        {/* Navegación Archivo / Mapa + Imprimir */}
-        <nav className="flex items-center gap-6">
+        {/* Navegación Archivo / Mapa / Tiempo + Imprimir */}
+        <nav ref={pageNavRef} className="flex items-center gap-6 relative" style={{ paddingBottom: 6 }}>
+          {/* Indicador deslizante */}
+          <span
+            ref={indicatorRef}
+            aria-hidden="true"
+            style={{
+              position:        'absolute',
+              bottom:          0,
+              left:            0,
+              height:          1,
+              backgroundColor: 'var(--c-ink)',
+              pointerEvents:   'none',
+              willChange:      'transform, width',
+            }}
+          />
+
           {NAV_PAGES.map(({ id, label }) => (
             <button
               key={id}
+              data-page={id}
               onClick={() => onPageChange(id)}
               className="text-meta transition-all"
               style={{
                 color:         page === id ? 'var(--c-ink)' : 'var(--c-ink-dim)',
-                borderBottom:  page === id ? '1px solid var(--c-ink)' : '1px solid transparent',
                 paddingBottom: '2px',
                 letterSpacing: '0.22em',
               }}
+              onMouseEnter={e => { if (page !== id) e.currentTarget.style.color = 'rgba(var(--c-ink-rgb), 0.7)' }}
+              onMouseLeave={e => { if (page !== id) e.currentTarget.style.color = 'var(--c-ink-dim)' }}
             >
               {label}
             </button>

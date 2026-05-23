@@ -4,16 +4,28 @@ import { gsap } from 'gsap'
 // Toast global — éxito en verde, error en rojo, neutro en gris
 export default function Toast({ message, type = 'success', onDone }) {
   const ref = useRef(null)
+  const barRef = useRef(null)
 
   useEffect(() => {
     if (!message) return
+    const HOLD = 3.2  // segundos visibles
+
     const tl = gsap.timeline()
     tl.fromTo(ref.current,
       { opacity: 0, y: 20, filter: 'blur(4px)' },
       { opacity: 1, y: 0,  filter: 'blur(0px)', duration: 0.35, ease: 'power3.out' }
     )
-    .to({}, { duration: 3.2 })
-    .to(ref.current, { opacity: 0, y: -8, duration: 0.25, onComplete: onDone })
+    // Barra de progreso: se vacía durante el hold
+    if (barRef.current) {
+      tl.fromTo(barRef.current,
+        { scaleX: 1 },
+        { scaleX: 0, duration: HOLD, ease: 'none', transformOrigin: 'left center' },
+        '<'
+      )
+    } else {
+      tl.to({}, { duration: HOLD })
+    }
+    tl.to(ref.current, { opacity: 0, y: -8, duration: 0.25, onComplete: onDone })
     return () => tl.kill()
   }, [message])
 
@@ -41,9 +53,25 @@ export default function Toast({ message, type = 'success', onDone }) {
         padding:         '0.55rem 1.6rem',
         pointerEvents:   'none',
         whiteSpace:      'nowrap',
+        overflow:        'hidden',
       }}
     >
       <p className="text-meta" style={{ color: c.text }}>{message}</p>
+      <div
+        ref={barRef}
+        aria-hidden="true"
+        style={{
+          position:        'absolute',
+          bottom:          0,
+          left:            0,
+          height:          1,
+          width:           '100%',
+          backgroundColor: c.text,
+          opacity:         0.35,
+          transformOrigin: 'left center',
+          willChange:      'transform',
+        }}
+      />
     </div>
   )
 }

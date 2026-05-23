@@ -8,7 +8,13 @@
       "Bash(exiftool -DateTimeOriginal -Make -Model -FNumber -ISO -ExposureTime -GPSLatitude -GPSLongitude -ImageWidth -ImageHeight \"/Users/abahyomi/Desktop/PRICK/Alex y abah/\"*.jpg \"/Users/abahyomi/Desktop/PRICK/Alex y abah/\"*.JPG \"/Users/abahyomi/Desktop/PRICK/Alex y abah/\"*.PNG)",
       "Bash(grep -E \"^={1,}|Date|Make|Model|FNumber|ISO|Exposure|GPS|Width|Height\")",
       "Bash(curl *)",
-      "Bash(python3 *)"
+      "Bash(python3 *)",
+      "Bash(git commit -m 'fix: player — oEmbed cover, event handler robusto, controles limpios *)",
+      "Bash(git commit -m 'fix: player mínimo — título, artista, tiempo, siguiente *)",
+      "Bash(git push *)",
+      "Bash(vercel --version)",
+      "Bash(npm i *)",
+      "Bash(git *)"
     ]
   }
 }
